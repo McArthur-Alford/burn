@@ -1,4 +1,4 @@
-use super::{display, record::ModuleRecordCodegen};
+use super::record::ModuleRecordCodegen;
 use crate::shared::generics::GenericsHelper;
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
@@ -18,6 +18,8 @@ pub(crate) trait ModuleCodegen {
     fn gen_into_record(&self) -> TokenStream;
     fn gen_load_record(&self) -> TokenStream;
     fn gen_clone(&self) -> TokenStream;
+    fn gen_display(&self) -> TokenStream;
+    fn gen_display_depth(&self, name: &Ident) -> TokenStream;
 
     fn record_codegen(self) -> Self::RecordCodegen;
 }
@@ -30,8 +32,6 @@ pub(crate) fn generate_module_standard<Codegen: ModuleCodegen>(
 
     let generics = GenericsParser::from_ast(&ast.generics);
 
-    let display_fn = display::display_fn(name);
-
     let num_params_fn = codegen.gen_num_params();
     let visit = codegen.gen_visit();
     let map_mut = codegen.gen_map();
@@ -42,6 +42,8 @@ pub(crate) fn generate_module_standard<Codegen: ModuleCodegen>(
     let into_record_fn = codegen.gen_into_record();
     let load_record_fn = codegen.gen_load_record();
     let clone_fn = codegen.gen_clone();
+    let display_fn = codegen.gen_display();
+    let display_depth_fn = codegen.gen_display_depth(name);
 
     let record = codegen.record_codegen();
     let record_name = Ident::new(format!("{}Record", name).as_str(), name.span());
@@ -69,6 +71,8 @@ pub(crate) fn generate_module_standard<Codegen: ModuleCodegen>(
             #collect_devices
             #to_device
             #fork
+
+            #display_depth_fn
         }
 
         impl #generics_module_autodiff burn::module::AutodiffModule<B> for #name #generics_ty_module_autodiff #generics_where_module_autodiff

@@ -159,6 +159,30 @@ impl ModuleCodegen for EnumModuleCodegen {
     fn record_codegen(self) -> Self::RecordCodegen {
         EnumModuleRecordCodegen::new(self.variants)
     }
+
+    fn gen_display(&self) -> TokenStream {
+        quote! {
+            fn fmt(&self, fmt: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+                self.fmt_depth(fmt, 0);
+            }
+        }
+    }
+
+    fn gen_display_depth(&self, name: &Ident) -> TokenStream {
+        let body = self.gen_variants_match_fn(|name| {
+            quote! {
+                burn::module::Module::<B>::fmt_depth(self.#name, fmt, depth + 1)?;
+            }
+        });
+
+        quote! {
+            fn fmt_depth(&self, fmt: &mut core::fmt::Formatter<'_>, depth: usize) -> Result<(), core::fmt::Error> {
+                writeln!(fmt, "{}{}:", "\t".repeat(depth), stringify!(#name))?;
+                #body
+                Ok(())
+            }
+        }
+    }
 }
 
 impl EnumModuleCodegen {

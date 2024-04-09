@@ -201,6 +201,12 @@ pub trait Module<B: Backend>: Clone + Send + core::fmt::Debug {
 
         Ok(self.load_record(record))
     }
+
+    /// Formats self, with a given depth (which should be used for indentation).
+    /// Used to generate a tree visualisation for the display trait.
+    fn fmt_depth(&self, f: &mut core::fmt::Formatter, depth: usize) -> core::fmt::Result {
+        Ok(())
+    }
 }
 
 /// Module visitor trait.
