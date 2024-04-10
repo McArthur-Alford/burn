@@ -212,41 +212,6 @@ impl ModuleCodegen for EnumModuleCodegen {
             }
         }
     }
-
-    // fn gen_fmt_single(&self, name: &Ident) -> TokenStream {
-    //     quote! {
-    //         fn fmt_single(&self, fmt: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
-    //             write!(
-    //                 fmt,
-    //                 "{}(num_params={})",
-    //                 stringify!(#name),
-    //                 self.num_params()
-    //             )
-    //         }
-    //     }
-    // }
-
-    // fn gen_fmt_tree(&self) -> TokenStream {
-    //     let body = self.gen_variants_match_fn(|variant| {
-    //         quote! {
-
-    //             // Write the field
-    //             write!(fmt, "{}{}: ", "\t".repeat(depth), stringify!(module))?;
-    //             burn::module::Module::<B>::fmt_single(module, fmt)?;
-    //             write!(fmt, "\n")?;
-
-    //             // Recurse down the tree
-    //             burn::module::Module::<B>::fmt_tree(module, fmt, depth+1)?;
-    //         }
-    //     });
-
-    //     quote! {
-    //         fn fmt_tree(&self, fmt: &mut core::fmt::Formatter<'_>, depth: usize) -> Result<(), core::fmt::Error> {
-    //             #body
-    //             Ok(())
-    //         }
-    //     }
-    // }
 }
 
 impl EnumModuleCodegen {
