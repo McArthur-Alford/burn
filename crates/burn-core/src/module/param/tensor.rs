@@ -145,6 +145,10 @@ impl<const D: usize, B: Backend> Module<B> for Param<Tensor<B, D>> {
 
         devices
     }
+
+    fn fmt_single(&self, fmt: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+        write!(fmt, "Param<Tensor> [shape={:?}]", self.shape())
+    }
 }
 
 impl<const D: usize, B: Backend> Module<B> for Param<Tensor<B, D, Int>> {
@@ -196,6 +200,10 @@ impl<const D: usize, B: Backend> Module<B> for Param<Tensor<B, D, Int>> {
 
         devices
     }
+
+    fn fmt_single(&self, fmt: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+        write!(fmt, "Param<Tensor> [shape={:?}]", self.shape())
+    }
 }
 
 impl<const D: usize, B: Backend> Module<B> for Param<Tensor<B, D, Bool>> {
@@ -246,6 +254,10 @@ impl<const D: usize, B: Backend> Module<B> for Param<Tensor<B, D, Bool>> {
         }
 
         devices
+    }
+
+    fn fmt_single(&self, fmt: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+        write!(fmt, "Param<Tensor> [shape={:?}]", self.shape())
     }
 }
 

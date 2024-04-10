@@ -204,6 +204,20 @@ where
     fn fork(self, device: &<B as Backend>::Device) -> Self {
         self.map(|module| module.fork(device))
     }
+
+    fn fmt_single(&self, fmt: &mut core::fmt::Formatter) -> Result<(), core::fmt::Error> {
+        write!(fmt, "[Module; {}]", N)
+    }
+
+    fn fmt_tree(&self, fmt: &mut core::fmt::Formatter, depth: usize) -> core::fmt::Result {
+        for (i, item) in self.iter().enumerate() {
+            write!(fmt, "{}{}: ", "\t".repeat(depth), i)?;
+            item.fmt_single(fmt)?;
+            write!(fmt, "\n")?;
+            item.fmt_tree(fmt, depth + 1)?;
+        }
+        Ok(())
+    }
 }
 
 impl<const N: usize, T, B> AutodiffModule<B> for [T; N]
