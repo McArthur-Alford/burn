@@ -45,6 +45,28 @@ where
 
         devices
     }
+
+    fn fmt_single(&self, fmt: &mut core::fmt::Formatter) -> Result<(), core::fmt::Error> {
+        match self {
+            Some(module) => {
+                write!(fmt, "Option::Some(")?;
+                module.fmt_single(fmt)?;
+                write!(fmt, ")")
+            }
+            None => write!(fmt, "Option::None"),
+        }
+    }
+
+    fn fmt_tree(
+        &self,
+        fmt: &mut core::fmt::Formatter,
+        depth: usize,
+    ) -> Result<(), core::fmt::Error> {
+        match self {
+            Some(module) => module.fmt_tree(fmt, depth),
+            None => Ok(()),
+        }
+    }
 }
 
 impl<T, B> AutodiffModule<B> for Option<T>

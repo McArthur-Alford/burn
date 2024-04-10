@@ -48,7 +48,7 @@ impl<B: Backend> Record<B> for ConstantRecord {
 /// Constant macro.
 #[macro_export]
 macro_rules! constant {
-    (module) => {
+    (module, $type:ty) => {
         type Record = burn::module::ConstantRecord;
 
         fn visit<V: burn::module::ModuleVisitor<B>>(&self, _visitor: &mut V) {
@@ -78,6 +78,10 @@ macro_rules! constant {
         fn collect_devices(&self, devices: burn::module::Devices<B>) -> burn::module::Devices<B> {
             devices
         }
+
+        fn fmt_single(&self, fmt: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+            write!(fmt, "{} [value={:?}]", stringify!($type), self)
+        }
     };
 
     (ad_module, $type:ty) => {
@@ -90,7 +94,7 @@ macro_rules! constant {
 
     ($type:ty) => {
         impl<B: burn::tensor::backend::Backend> burn::module::Module<B> for $type {
-            constant!(module);
+            constant!(module, $type);
         }
 
         impl<B: burn::tensor::backend::AutodiffBackend> burn::module::AutodiffModule<B> for $type {

@@ -121,7 +121,7 @@ pub(crate) fn generate_module_const(ast: &syn::DeriveInput) -> TokenStream {
 
     let gen = quote! {
         impl #generics_module burn::module::Module<B> for #name #generics_ty #generics_where {
-            burn::constant!(module);
+            burn::constant!(module, #name #generics_ty);
         }
 
         impl #generics_module_ad burn::module::AutodiffModule<B>
