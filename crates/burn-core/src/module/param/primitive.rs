@@ -2,7 +2,6 @@ use crate::module::{AutodiffModule, Module, ModuleMapper, ModuleVisitor};
 use alloc::vec::Vec;
 use burn_tensor::backend::{AutodiffBackend, Backend};
 use core::fmt::Debug;
-use log::warn;
 
 impl<T, B> Module<B> for Option<T>
 where
