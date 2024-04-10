@@ -163,26 +163,90 @@ impl ModuleCodegen for EnumModuleCodegen {
     fn gen_display(&self) -> TokenStream {
         quote! {
             fn fmt(&self, fmt: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
-                self.fmt_depth(fmt, 0);
+                self.fmt_single(fmt)?;
+                write!(fmt, "\n")?;
+                self.fmt_tree(fmt, 1)
             }
         }
     }
 
-    fn gen_display_depth(&self, name: &Ident) -> TokenStream {
-        let body = self.gen_variants_match_fn(|name| {
+    fn gen_fmt_single(&self, name: &Ident) -> TokenStream {
+        let match_body = self.gen_variants_match_fn(|variant: Ident| {
             quote! {
-                burn::module::Module::<B>::fmt_depth(self.#name, fmt, depth + 1)?;
+                write!(
+                    fmt,
+                    "{}::{} [num_params={}]",
+                    stringify!(#name),
+                    stringify!(#variant),
+                    burn::module::Module::<B>::num_params(module)
+                )
             }
         });
 
         quote! {
-            fn fmt_depth(&self, fmt: &mut core::fmt::Formatter<'_>, depth: usize) -> Result<(), core::fmt::Error> {
-                writeln!(fmt, "{}{}:", "\t".repeat(depth), stringify!(#name))?;
-                #body
+            fn fmt_single(&self, fmt: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+                #match_body
+            }
+        }
+    }
+
+    fn gen_fmt_tree(&self) -> TokenStream {
+        let func = |name: Ident| {
+            quote! {
+                {
+                    // Write the variant name and recurse
+                    write!(fmt, "{}{}: ", "\t".repeat(depth), stringify!(#name))?;
+                    burn::module::Module::<B>::fmt_single(module, fmt)?;
+                    write!(fmt, "\n")?;
+                    burn::module::Module::<B>::fmt_tree(module, fmt, depth + 1)?;
+                }
+            }
+        };
+
+        let match_body = self.gen_variants_match_fn(func);
+
+        quote! {
+            fn fmt_tree(&self, fmt: &mut core::fmt::Formatter<'_>, depth: usize) -> Result<(), core::fmt::Error> {
+                #match_body
                 Ok(())
             }
         }
     }
+
+    // fn gen_fmt_single(&self, name: &Ident) -> TokenStream {
+    //     quote! {
+    //         fn fmt_single(&self, fmt: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+    //             write!(
+    //                 fmt,
+    //                 "{}(num_params={})",
+    //                 stringify!(#name),
+    //                 self.num_params()
+    //             )
+    //         }
+    //     }
+    // }
+
+    // fn gen_fmt_tree(&self) -> TokenStream {
+    //     let body = self.gen_variants_match_fn(|variant| {
+    //         quote! {
+
+    //             // Write the field
+    //             write!(fmt, "{}{}: ", "\t".repeat(depth), stringify!(module))?;
+    //             burn::module::Module::<B>::fmt_single(module, fmt)?;
+    //             write!(fmt, "\n")?;
+
+    //             // Recurse down the tree
+    //             burn::module::Module::<B>::fmt_tree(module, fmt, depth+1)?;
+    //         }
+    //     });
+
+    //     quote! {
+    //         fn fmt_tree(&self, fmt: &mut core::fmt::Formatter<'_>, depth: usize) -> Result<(), core::fmt::Error> {
+    //             #body
+    //             Ok(())
+    //         }
+    //     }
+    // }
 }
 
 impl EnumModuleCodegen {

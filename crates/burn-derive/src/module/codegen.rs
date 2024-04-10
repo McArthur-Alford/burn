@@ -19,7 +19,8 @@ pub(crate) trait ModuleCodegen {
     fn gen_load_record(&self) -> TokenStream;
     fn gen_clone(&self) -> TokenStream;
     fn gen_display(&self) -> TokenStream;
-    fn gen_display_depth(&self, name: &Ident) -> TokenStream;
+    fn gen_fmt_tree(&self) -> TokenStream;
+    fn gen_fmt_single(&self, ident: &Ident) -> TokenStream;
 
     fn record_codegen(self) -> Self::RecordCodegen;
 }
@@ -43,7 +44,8 @@ pub(crate) fn generate_module_standard<Codegen: ModuleCodegen>(
     let load_record_fn = codegen.gen_load_record();
     let clone_fn = codegen.gen_clone();
     let display_fn = codegen.gen_display();
-    let display_depth_fn = codegen.gen_display_depth(name);
+    let fmt_tree_fn = codegen.gen_fmt_tree();
+    let fmt_single_fn = codegen.gen_fmt_single(name);
 
     let record = codegen.record_codegen();
     let record_name = Ident::new(format!("{}Record", name).as_str(), name.span());
@@ -72,7 +74,8 @@ pub(crate) fn generate_module_standard<Codegen: ModuleCodegen>(
             #to_device
             #fork
 
-            #display_depth_fn
+            #fmt_tree_fn
+            #fmt_single_fn
         }
 
         impl #generics_module_autodiff burn::module::AutodiffModule<B> for #name #generics_ty_module_autodiff #generics_where_module_autodiff

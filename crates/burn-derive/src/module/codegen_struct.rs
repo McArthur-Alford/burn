@@ -188,23 +188,43 @@ impl ModuleCodegen for StructModuleCodegen {
     fn gen_display(&self) -> TokenStream {
         quote! {
             fn fmt(&self, fmt: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
-                self.fmt_depth(fmt, 0)
+                self.fmt_single(fmt)?;
+                write!(fmt, "\n")?;
+                self.fmt_tree(fmt, 1)
             }
         }
     }
 
-    fn gen_display_depth(&self, name: &Ident) -> TokenStream {
-        let body = self.gen_fields_fn(|name| {
+    fn gen_fmt_single(&self, name: &Ident) -> TokenStream {
+        quote! {
+            fn fmt_single(&self, fmt: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+                write!(
+                    fmt,
+                    "{} [num_params={}]",
+                    stringify!(#name),
+                    self.num_params()
+                )
+            }
+        }
+    }
+
+    fn gen_fmt_tree(&self) -> TokenStream {
+        let body = self.gen_fields_fn(|field| {
             quote! {
-                burn::module::Module::<B>::fmt_depth(&self.#name, fmt, depth + 1)?;
+                // Write the field
+                write!(fmt, "{}{}: ", "\t".repeat(depth), stringify!(#field))?;
+                burn::module::Module::<B>::fmt_single(&self.#field, fmt)?;
+                write!(fmt, "\n")?;
+
+                // Recurse down the tree
+                burn::module::Module::<B>::fmt_tree(&self.#field, fmt, depth+1)?;
             }
         });
 
         quote! {
-            fn fmt_depth(&self, fmt: &mut core::fmt::Formatter<'_>, depth: usize) -> Result<(), core::fmt::Error> {
-                writeln!(fmt, "{}{}(num_params={}) {{", "\t".repeat(depth), stringify!(#name), self.num_params())?;
+            fn fmt_tree(&self, fmt: &mut core::fmt::Formatter<'_>, depth: usize) -> Result<(), core::fmt::Error> {
                 #body
-                writeln!(fmt, "{}}}", "\t".repeat(depth))
+                Ok(())
             }
         }
     }
