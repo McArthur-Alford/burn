@@ -212,7 +212,7 @@ where
         for (i, item) in self.iter().enumerate() {
             write!(fmt, "{}{}: ", "\t".repeat(depth), i)?;
             item.fmt_single(fmt)?;
-            write!(fmt, "\n")?;
+            writeln!(fmt)?;
             item.fmt_tree(fmt, depth + 1)?;
         }
         Ok(())

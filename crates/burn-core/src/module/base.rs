@@ -208,7 +208,7 @@ pub trait Module<B: Backend>: Clone + Send + core::fmt::Debug {
     }
 
     /// Write each of the children of this module to the provided formatter, indented up to the provided depth.
-    fn fmt_tree(&self, f: &mut core::fmt::Formatter, depth: usize) -> core::fmt::Result {
+    fn fmt_tree(&self, _: &mut core::fmt::Formatter, _: usize) -> core::fmt::Result {
         Ok(())
     }
 }
