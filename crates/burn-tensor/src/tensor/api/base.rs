@@ -18,8 +18,10 @@ use serde::{Deserialize, Deserializer};
 use serde::{Serialize, Serializer};
 
 use crate::check::TensorCheck;
+use crate::sparse_backend::SparseBackend;
 use crate::tensor::api::chunk::chunk;
 use crate::tensor::api::narrow::narrow;
+use crate::Sparse;
 use crate::{backend::Backend, check, Bool, Data, DataSerialize, Float, Int, Shape, TensorKind};
 
 /// A tensor with a given backend, shape and data type.
@@ -35,7 +37,7 @@ where
 impl<B, const D: usize, K, T> From<T> for Tensor<B, D, K>
 where
     B: Backend,
-    K: BasicOps<B>,
+    K: BasicDenseOps<B>,
     T: Into<Data<K::Elem, D>>,
 {
     fn from(value: T) -> Self {
@@ -47,6 +49,29 @@ impl<B, const D: usize, K> Tensor<B, D, K>
 where
     B: Backend,
     K: BasicOps<B>,
+{
+    /// Returns the device of the current tensor.
+    pub fn device(&self) -> B::Device {
+        K::device(&self.primitive)
+    }
+
+    /// Returns a new tensor on the given device.
+    pub fn to_device(self, device: &B::Device) -> Self {
+        Self::new(K::to_device(self.primitive, device))
+    }
+}
+
+impl<B, const D: usize, K> Tensor<B, D, K>
+where
+    B: SparseBackend,
+    K: BasicSparseOps<B>,
+{
+}
+
+impl<B, const D: usize, K> Tensor<B, D, K>
+where
+    B: Backend,
+    K: BasicDenseOps<B>,
 {
     /// Converts the tensor into a primitive tensor.
     pub fn into_primitive(self) -> K::Primitive<D> {
@@ -521,16 +546,6 @@ where
         Self::new(K::slice_assign(self.primitive, ranges, values.primitive))
     }
 
-    /// Returns the device of the current tensor.
-    pub fn device(&self) -> B::Device {
-        K::device(&self.primitive)
-    }
-
-    /// Returns a new tensor on the given device.
-    pub fn to_device(self, device: &B::Device) -> Self {
-        Self::new(K::to_device(self.primitive, device))
-    }
-
     #[cfg(all(not(feature = "wasm-sync"), target_family = "wasm"))]
     /// Returns the data of the current tensor.
     pub async fn into_data(self) -> Data<K::Elem, D> {
@@ -780,7 +795,7 @@ where
 pub struct DimIter<B, const D: usize, K>
 where
     B: Backend,
-    K: BasicOps<B>,
+    K: BasicDenseOps<B>,
 {
     start: usize,
     end: usize,
@@ -789,7 +804,7 @@ where
     tensor: Tensor<B, D, K>,
 }
 
-impl<B: Backend, const D: usize, K: BasicOps<B>> Iterator for DimIter<B, D, K> {
+impl<B: Backend, const D: usize, K: BasicDenseOps<B>> Iterator for DimIter<B, D, K> {
     type Item = Tensor<B, D, K>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -807,7 +822,7 @@ impl<B: Backend, const D: usize, K: BasicOps<B>> Iterator for DimIter<B, D, K> {
     }
 }
 
-impl<B: Backend, const D: usize, K: BasicOps<B>> DoubleEndedIterator for DimIter<B, D, K> {
+impl<B: Backend, const D: usize, K: BasicDenseOps<B>> DoubleEndedIterator for DimIter<B, D, K> {
     fn next_back(&mut self) -> Option<Self::Item> {
         if self.start >= self.end {
             return None;
@@ -823,7 +838,7 @@ impl<B: Backend, const D: usize, K: BasicOps<B>> DoubleEndedIterator for DimIter
     }
 }
 
-impl<B: Backend, const D: usize, K: BasicOps<B>> DimIter<B, D, K> {
+impl<B: Backend, const D: usize, K: BasicDenseOps<B>> DimIter<B, D, K> {
     fn new(tensor: Tensor<B, D, K>, dim: usize) -> Self {
         let dims = tensor.dims();
         let ranges = dims
@@ -844,7 +859,7 @@ impl<B: Backend, const D: usize, K: BasicOps<B>> DimIter<B, D, K> {
 impl<B, const D: usize, K> Tensor<B, D, K>
 where
     B: Backend,
-    K: BasicOps<B>,
+    K: BasicDenseOps<B>,
     <K as BasicOps<B>>::Elem: Debug,
 {
     #[cfg(any(feature = "wasm-sync", not(target_family = "wasm")))]
@@ -1018,7 +1033,7 @@ impl<B, const D: usize, K> core::fmt::Display for Tensor<B, D, K>
 where
     B: Backend,
     B::IntElem: core::fmt::Display,
-    K: BasicOps<B>,
+    K: BasicDenseOps<B>,
     <K as BasicOps<B>>::Elem: Debug,
 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -1076,6 +1091,72 @@ pub trait BasicOps<B: Backend>: TensorKind<B> {
     /// The type of the tensor elements.
     type Elem: 'static + Copy;
 
+    /// Returns the device on which the tensor is allocated.
+    ///
+    /// # Arguments
+    ///
+    /// * `tensor` - The tensor.
+    ///
+    /// # Returns
+    ///
+    /// The device on which the tensor is allocated.
+    ///
+    /// # Remarks
+    ///
+    /// This is a low-level function used internally by the library to call different backend functions
+    /// with static dispatch. It is not designed for direct usage by users, and not recommended to import
+    /// or use this function directly.
+    ///
+    /// For getting the device of a tensor, users should prefer the [Tensor::device](Tensor::device) function,
+    /// which is more high-level and designed for public use.
+    fn device<const D: usize>(tensor: &Self::Primitive<D>) -> B::Device;
+
+    /// Moves the tensor to the given device.
+    ///
+    /// # Arguments
+    ///
+    /// * `tensor` - The tensor.
+    /// * `device` - The device on which the tensor will be moved.
+    ///
+    /// # Returns
+    ///
+    /// The tensor on the given device.
+    ///
+    /// # Remarks
+    ///
+    /// This is a low-level function used internally by the library to call different backend functions
+    /// with static dispatch. It is not designed for direct usage by users, and not recommended to import
+    /// or use this function directly.
+    ///
+    /// For moving a tensor to a device, users should prefer the [Tensor::to_device](Tensor::to_device) function,
+    /// which is more high-level and designed for public use.
+    fn to_device<const D: usize>(
+        tensor: Self::Primitive<D>,
+        device: &B::Device,
+    ) -> Self::Primitive<D>;
+}
+
+/// Trait that list all operations that can be applied on all sparse tensors.
+///
+/// # Warnings
+///
+/// This is an internal trait, use the public API provided by [tensor struct](Tensor).
+pub trait BasicSparseOps<B: SparseBackend>: BasicOps<B> {
+    fn to_sparse<const D: usize>(
+        tensor: Self::Primitive<D>,
+    ) -> <Float as TensorKind<B>>::Primitive<D>;
+
+    fn to_dense<const D: usize>(
+        tensor: <Float as TensorKind<B>>::Primitive<D>,
+    ) -> Self::Primitive<D>;
+}
+
+/// Trait that list all operations that can be applied on all dense tensors.
+///
+/// # Warnings
+///
+/// This is an internal trait, use the public API provided by [tensor struct](Tensor).
+pub trait BasicDenseOps<B: Backend>: BasicOps<B> {
     /// Creates an empty tensor with the given shape.
     ///
     /// # Arguments
@@ -1242,50 +1323,6 @@ pub trait BasicOps<B: Backend>: TensorKind<B> {
         ranges: [Range<usize>; D2],
         value: Self::Primitive<D1>,
     ) -> Self::Primitive<D1>;
-
-    /// Returns the device on which the tensor is allocated.
-    ///
-    /// # Arguments
-    ///
-    /// * `tensor` - The tensor.
-    ///
-    /// # Returns
-    ///
-    /// The device on which the tensor is allocated.
-    ///
-    /// # Remarks
-    ///
-    /// This is a low-level function used internally by the library to call different backend functions
-    /// with static dispatch. It is not designed for direct usage by users, and not recommended to import
-    /// or use this function directly.
-    ///
-    /// For getting the device of a tensor, users should prefer the [Tensor::device](Tensor::device) function,
-    /// which is more high-level and designed for public use.
-    fn device<const D: usize>(tensor: &Self::Primitive<D>) -> B::Device;
-
-    /// Moves the tensor to the given device.
-    ///
-    /// # Arguments
-    ///
-    /// * `tensor` - The tensor.
-    /// * `device` - The device on which the tensor will be moved.
-    ///
-    /// # Returns
-    ///
-    /// The tensor on the given device.
-    ///
-    /// # Remarks
-    ///
-    /// This is a low-level function used internally by the library to call different backend functions
-    /// with static dispatch. It is not designed for direct usage by users, and not recommended to import
-    /// or use this function directly.
-    ///
-    /// For moving a tensor to a device, users should prefer the [Tensor::to_device](Tensor::to_device) function,
-    /// which is more high-level and designed for public use.
-    fn to_device<const D: usize>(
-        tensor: Self::Primitive<D>,
-        device: &B::Device,
-    ) -> Self::Primitive<D>;
 
     /// Extracts the data from the tensor.
     ///
@@ -1525,6 +1562,19 @@ pub trait BasicOps<B: Backend>: TensorKind<B> {
 impl<B: Backend> BasicOps<B> for Float {
     type Elem = B::FloatElem;
 
+    fn device<const D: usize>(tensor: &Self::Primitive<D>) -> <B as Backend>::Device {
+        B::float_device(tensor)
+    }
+
+    fn to_device<const D: usize>(
+        tensor: Self::Primitive<D>,
+        device: &<B as Backend>::Device,
+    ) -> Self::Primitive<D> {
+        B::float_to_device(tensor, device)
+    }
+}
+
+impl<B: Backend> BasicDenseOps<B> for Float {
     fn empty<const D: usize>(shape: Shape<D>, device: &B::Device) -> Self::Primitive<D> {
         B::float_empty(shape, device)
     }
@@ -1566,17 +1616,6 @@ impl<B: Backend> BasicOps<B> for Float {
         value: Self::Primitive<D1>,
     ) -> Self::Primitive<D1> {
         B::float_slice_assign(tensor, ranges, value)
-    }
-
-    fn device<const D: usize>(tensor: &Self::Primitive<D>) -> <B as Backend>::Device {
-        B::float_device(tensor)
-    }
-
-    fn to_device<const D: usize>(
-        tensor: Self::Primitive<D>,
-        device: &<B as Backend>::Device,
-    ) -> Self::Primitive<D> {
-        B::float_to_device(tensor, device)
     }
 
     fn into_data<const D: usize>(tensor: Self::Primitive<D>) -> Reader<Data<Self::Elem, D>> {
@@ -1651,6 +1690,19 @@ impl<B: Backend> BasicOps<B> for Float {
 impl<B: Backend> BasicOps<B> for Int {
     type Elem = B::IntElem;
 
+    fn device<const D: usize>(tensor: &Self::Primitive<D>) -> <B as Backend>::Device {
+        B::int_device(tensor)
+    }
+
+    fn to_device<const D: usize>(
+        tensor: Self::Primitive<D>,
+        device: &<B as Backend>::Device,
+    ) -> Self::Primitive<D> {
+        B::int_to_device(tensor, device)
+    }
+}
+
+impl<B: Backend> BasicDenseOps<B> for Int {
     fn empty<const D: usize>(shape: Shape<D>, device: &B::Device) -> Self::Primitive<D> {
         B::int_empty(shape, device)
     }
@@ -1691,17 +1743,6 @@ impl<B: Backend> BasicOps<B> for Int {
         value: Self::Primitive<D1>,
     ) -> Self::Primitive<D1> {
         B::int_slice_assign(tensor, ranges, value)
-    }
-
-    fn device<const D: usize>(tensor: &Self::Primitive<D>) -> <B as Backend>::Device {
-        B::int_device(tensor)
-    }
-
-    fn to_device<const D: usize>(
-        tensor: Self::Primitive<D>,
-        device: &<B as Backend>::Device,
-    ) -> Self::Primitive<D> {
-        B::int_to_device(tensor, device)
     }
 
     fn into_data<const D: usize>(tensor: Self::Primitive<D>) -> Reader<Data<Self::Elem, D>> {
@@ -1776,6 +1817,19 @@ impl<B: Backend> BasicOps<B> for Int {
 impl<B: Backend> BasicOps<B> for Bool {
     type Elem = bool;
 
+    fn device<const D: usize>(tensor: &Self::Primitive<D>) -> <B as Backend>::Device {
+        B::bool_device(tensor)
+    }
+
+    fn to_device<const D: usize>(
+        tensor: Self::Primitive<D>,
+        device: &<B as Backend>::Device,
+    ) -> Self::Primitive<D> {
+        B::bool_to_device(tensor, device)
+    }
+}
+
+impl<B: Backend> BasicDenseOps<B> for Bool {
     fn empty<const D: usize>(shape: Shape<D>, device: &B::Device) -> Self::Primitive<D> {
         B::bool_empty(shape, device)
     }
@@ -1816,17 +1870,6 @@ impl<B: Backend> BasicOps<B> for Bool {
         value: Self::Primitive<D1>,
     ) -> Self::Primitive<D1> {
         B::bool_slice_assign(tensor, ranges, value)
-    }
-
-    fn device<const D: usize>(tensor: &Self::Primitive<D>) -> <B as Backend>::Device {
-        B::bool_device(tensor)
-    }
-
-    fn to_device<const D: usize>(
-        tensor: Self::Primitive<D>,
-        device: &<B as Backend>::Device,
-    ) -> Self::Primitive<D> {
-        B::bool_to_device(tensor, device)
     }
 
     fn into_data<const D: usize>(tensor: Self::Primitive<D>) -> Reader<Data<Self::Elem, D>> {
@@ -1898,17 +1941,32 @@ impl<B: Backend> BasicOps<B> for Bool {
     }
 }
 
+impl<B: SparseBackend> BasicOps<B> for Sparse {
+    type Elem = B::FloatElem;
+
+    fn device<const D: usize>(tensor: &Self::Primitive<D>) -> <B as Backend>::Device {
+        B::sparse_device(tensor)
+    }
+
+    fn to_device<const D: usize>(
+        tensor: Self::Primitive<D>,
+        device: &<B as Backend>::Device,
+    ) -> Self::Primitive<D> {
+        B::sparse_to_device(tensor, device)
+    }
+}
+
 /// Trait used for reshape arguments.
 pub trait ReshapeArgs<const D2: usize> {
     /// Converts to a shape.
-    fn into_shape<B: Backend, const D: usize, K: BasicOps<B>>(
+    fn into_shape<B: Backend, const D: usize, K: BasicDenseOps<B>>(
         self,
         tensor: &Tensor<B, D, K>,
     ) -> Shape<D2>;
 }
 
 impl<const D2: usize> ReshapeArgs<D2> for Shape<D2> {
-    fn into_shape<B: Backend, const D: usize, K: BasicOps<B>>(
+    fn into_shape<B: Backend, const D: usize, K: BasicDenseOps<B>>(
         self,
         tensor: &Tensor<B, D, K>,
     ) -> Shape<D2> {
@@ -1918,7 +1976,7 @@ impl<const D2: usize> ReshapeArgs<D2> for Shape<D2> {
     }
 }
 impl<const D2: usize> ReshapeArgs<D2> for [usize; D2] {
-    fn into_shape<B: Backend, const D: usize, K: BasicOps<B>>(
+    fn into_shape<B: Backend, const D: usize, K: BasicDenseOps<B>>(
         self,
         tensor: &Tensor<B, D, K>,
     ) -> Shape<D2> {
@@ -1931,7 +1989,7 @@ impl<const D2: usize> ReshapeArgs<D2> for [usize; D2] {
 }
 
 impl<const D2: usize> ReshapeArgs<D2> for [i32; D2] {
-    fn into_shape<B: Backend, const D: usize, K: BasicOps<B>>(
+    fn into_shape<B: Backend, const D: usize, K: BasicDenseOps<B>>(
         self,
         tensor: &Tensor<B, D, K>,
     ) -> Shape<D2> {
@@ -2037,7 +2095,7 @@ impl<const D1: usize, const D2: usize> BroadcastArgs<D1, D2> for [i32; D2] {
 impl<B, const D: usize, K> Serialize for Tensor<B, D, K>
 where
     B: Backend,
-    K: BasicOps<B>,
+    K: BasicDenseOps<B>,
     K::Elem: Debug + Copy + Serialize,
 {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
@@ -2054,7 +2112,7 @@ where
 impl<'de, B, const D: usize, K> Deserialize<'de> for Tensor<B, D, K>
 where
     B: Backend,
-    K: BasicOps<B>,
+    K: BasicDenseOps<B>,
     K::Elem: Debug + Copy + Deserialize<'de>,
 {
     fn deserialize<De: Deserializer<'de>>(deserializer: De) -> Result<Self, De::Error> {

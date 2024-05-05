@@ -1,4 +1,4 @@
-use crate::{backend::AutodiffBackend, BasicOps, Bool, Float, Int, Tensor, TensorKind};
+use crate::{backend::AutodiffBackend, BasicDenseOps, Bool, Float, Int, Tensor, TensorKind};
 
 impl<const D: usize, B: AutodiffBackend> Tensor<B, D> {
     /// Backward pass of the tensor.
@@ -100,9 +100,9 @@ impl<B: AutodiffBackend> BasicAutodiffOps<B> for Bool {
 /// # Warnings
 ///
 /// This is an internal trait, use the public API provided by [tensor struct](Tensor).
-pub trait BasicAutodiffOps<B: AutodiffBackend>: BasicOps<B> + BasicOps<B::InnerBackend> {
+pub trait BasicAutodiffOps<B: AutodiffBackend>: BasicDenseOps<B> + BasicDenseOps<B::InnerBackend> {
     /// Inner primitive tensor.
-    type InnerKind: BasicOps<B::InnerBackend>;
+    type InnerKind: BasicDenseOps<B::InnerBackend>;
 
     /// Returns the inner tensor without the autodiff information.
     ///

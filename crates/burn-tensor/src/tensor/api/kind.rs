@@ -1,4 +1,4 @@
-use crate::backend::Backend;
+use crate::{backend::Backend, sparse_backend::SparseBackend};
 
 /// A type-level representation of the kind of a float tensor
 #[derive(Clone, Debug)]
@@ -11,6 +11,10 @@ pub struct Int;
 /// A type-level representation of the kind of a bool tensor.
 #[derive(Clone, Debug)]
 pub struct Bool;
+
+/// A type-level representation of the kind of a sparse (float) tensor.
+#[derive(Clone, Debug)]
+pub struct Sparse;
 
 /// A type-level representation of the kind of a tensor.
 pub trait TensorKind<B: Backend>: Clone + core::fmt::Debug {
@@ -39,5 +43,12 @@ impl<B: Backend> TensorKind<B> for Bool {
     type Primitive<const D: usize> = B::BoolTensorPrimitive<D>;
     fn name() -> &'static str {
         "Bool"
+    }
+}
+
+impl<B: SparseBackend> TensorKind<B> for Sparse {
+    type Primitive<const D: usize> = B::SparseTensorPrimitive<D>;
+    fn name() -> &'static str {
+        "Sparse"
     }
 }

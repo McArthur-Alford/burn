@@ -1,7 +1,7 @@
-use crate::{backend::Backend, BasicOps, Tensor, TensorKind};
+use crate::{backend::Backend, BasicDenseOps, Tensor, TensorKind};
 use alloc::vec::Vec;
 
-pub(crate) fn cat_with_slice_assign<B: Backend, const D: usize, K: TensorKind<B> + BasicOps<B>>(
+pub(crate) fn cat_with_slice_assign<B: Backend, const D: usize, K: TensorKind<B> + BasicDenseOps<B>>(
     tensors: Vec<Tensor<B, D, K>>,
     dim: usize,
 ) -> Tensor<B, D, K> {

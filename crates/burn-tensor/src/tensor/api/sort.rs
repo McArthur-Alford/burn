@@ -3,7 +3,8 @@ use core::cmp::Ordering;
 use crate::{
     backend::Backend,
     ops::{IntElem, IntTensor},
-    BasicOps, Data, Device, Element, ElementComparison, ElementConversion, TensorKind,
+    BasicDenseOps, BasicOps, Data, Device, Element, ElementComparison, ElementConversion,
+    TensorKind,
 };
 use alloc::vec::Vec;
 
@@ -28,7 +29,7 @@ use alloc::vec::Vec;
 /// by static dispatch. It is not designed for direct usage by users, and not recommended to import
 /// or use this function directly.
 #[cfg(any(feature = "wasm-sync", not(target_family = "wasm")))]
-pub fn sort<B: Backend, const D: usize, K: TensorKind<B> + BasicOps<B>>(
+pub fn sort<B: Backend, const D: usize, K: TensorKind<B> + BasicDenseOps<B>>(
     tensor: K::Primitive<D>,
     dim: usize,
     descending: bool,
@@ -63,7 +64,7 @@ where
 /// by static dispatch. It is not designed for direct usage by users, and not recommended to import
 /// or use this function directly.
 #[cfg(all(not(feature = "wasm-sync"), target_family = "wasm"))]
-pub async fn sort<B: Backend, const D: usize, K: TensorKind<B> + BasicOps<B>>(
+pub async fn sort<B: Backend, const D: usize, K: TensorKind<B> + BasicDenseOps<B>>(
     tensor: K::Primitive<D>,
     dim: usize,
     descending: bool,
@@ -77,7 +78,7 @@ where
     sort_data::<B, D, K>(data, dim, &device, descending)
 }
 
-pub fn sort_data<B: Backend, const D: usize, K: TensorKind<B> + BasicOps<B>>(
+pub fn sort_data<B: Backend, const D: usize, K: TensorKind<B> + BasicDenseOps<B>>(
     mut data: Data<<K as BasicOps<B>>::Elem, D>,
     dim: usize,
     device: &Device<B>,
@@ -120,7 +121,7 @@ where
 /// by static dispatch. It is not designed for direct usage by users, and not recommended to import
 /// or use this function directly.
 #[cfg(any(feature = "wasm-sync", not(target_family = "wasm")))]
-pub fn sort_with_indices<B: Backend, const D: usize, K: TensorKind<B> + BasicOps<B>>(
+pub fn sort_with_indices<B: Backend, const D: usize, K: TensorKind<B> + BasicDenseOps<B>>(
     tensor: K::Primitive<D>,
     dim: usize,
     descending: bool,
@@ -156,7 +157,7 @@ where
 /// by static dispatch. It is not designed for direct usage by users, and not recommended to import
 /// or use this function directly.
 #[cfg(all(not(feature = "wasm-sync"), target_family = "wasm"))]
-pub async fn sort_with_indices<B: Backend, const D: usize, K: TensorKind<B> + BasicOps<B>>(
+pub async fn sort_with_indices<B: Backend, const D: usize, K: TensorKind<B> + BasicDenseOps<B>>(
     tensor: K::Primitive<D>,
     dim: usize,
     descending: bool,
@@ -170,7 +171,7 @@ where
     sort_data_with_indices::<B, D, K>(data, dim, &device, descending)
 }
 
-fn sort_data_with_indices<B: Backend, const D: usize, K: TensorKind<B> + BasicOps<B>>(
+fn sort_data_with_indices<B: Backend, const D: usize, K: TensorKind<B> + BasicDenseOps<B>>(
     mut data: Data<<K as BasicOps<B>>::Elem, D>,
     dim: usize,
     device: &Device<B>,
@@ -253,7 +254,7 @@ where
 /// by static dispatch. It is not designed for direct usage by users, and not recommended to import
 /// or use this function directly.
 #[cfg(any(feature = "wasm-sync", not(target_family = "wasm")))]
-pub fn argsort<B: Backend, const D: usize, K: TensorKind<B> + BasicOps<B>>(
+pub fn argsort<B: Backend, const D: usize, K: TensorKind<B> + BasicDenseOps<B>>(
     tensor: K::Primitive<D>,
     dim: usize,
     descending: bool,
@@ -288,7 +289,7 @@ where
 /// by static dispatch. It is not designed for direct usage by users, and not recommended to import
 /// or use this function directly.
 #[cfg(all(not(feature = "wasm-sync"), target_family = "wasm"))]
-pub async fn argsort<B: Backend, const D: usize, K: TensorKind<B> + BasicOps<B>>(
+pub async fn argsort<B: Backend, const D: usize, K: TensorKind<B> + BasicDenseOps<B>>(
     tensor: K::Primitive<D>,
     dim: usize,
     descending: bool,
@@ -302,7 +303,7 @@ where
     argsort_data::<B, D, K>(data, dim, &device, descending)
 }
 
-fn argsort_data<B: Backend, const D: usize, K: TensorKind<B> + BasicOps<B>>(
+fn argsort_data<B: Backend, const D: usize, K: TensorKind<B> + BasicDenseOps<B>>(
     mut data: Data<<K as BasicOps<B>>::Elem, D>,
     dim: usize,
     device: &Device<B>,
@@ -343,7 +344,7 @@ where
 /// and if `permute_both` is enabled then the data is also sorted.
 ///
 /// This sort is unstable (i.e., may reorder equal elements).
-fn sort_slice<B: Backend, const D: usize, K: BasicOps<B>>(
+fn sort_slice<B: Backend, const D: usize, K: BasicDenseOps<B>>(
     data: &mut [<K as BasicOps<B>>::Elem],
     dims: &[usize; D],
     dim: usize,

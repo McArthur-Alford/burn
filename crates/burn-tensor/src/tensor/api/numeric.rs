@@ -3,7 +3,7 @@ use alloc::vec::Vec;
 use crate::alloc::borrow::ToOwned;
 
 use crate::{
-    backend::Backend, check, check::TensorCheck, BasicOps, Bool, Distribution, Element,
+    backend::Backend, check, check::TensorCheck, BasicDenseOps, Bool, Distribution, Element,
     ElementConversion, Float, Int, Shape, Tensor, TensorKind,
 };
 use num_traits::Zero;
@@ -815,7 +815,7 @@ where
 /// # Warnings
 ///
 /// This is an internal trait, use the public API provided by [tensor struct](Tensor).
-pub trait Numeric<B: Backend>: BasicOps<B>
+pub trait Numeric<B: Backend>: BasicDenseOps<B>
 where
     Self::Elem: Element,
 {

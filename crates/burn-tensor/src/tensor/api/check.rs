@@ -1,4 +1,4 @@
-use crate::{backend::Backend, BasicOps, Shape, Tensor};
+use crate::{backend::Backend, BasicDenseOps, Shape, Tensor};
 use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec;
@@ -39,7 +39,7 @@ pub(crate) enum TensorCheck {
 
 impl TensorCheck {
     /// Checks device and shape compatibility for element wise binary operations.
-    pub(crate) fn binary_ops_ew<B: Backend, const D: usize, K: BasicOps<B>>(
+    pub(crate) fn binary_ops_ew<B: Backend, const D: usize, K: BasicDenseOps<B>>(
         ops: &str,
         lhs: &Tensor<B, D, K>,
         rhs: &Tensor<B, D, K>,
@@ -80,7 +80,7 @@ impl TensorCheck {
         check
     }
 
-    pub(crate) fn narrow<B: Backend, const D: usize, K: BasicOps<B>>(
+    pub(crate) fn narrow<B: Backend, const D: usize, K: BasicDenseOps<B>>(
         tensor: &Tensor<B, D, K>,
         dim: usize,
         start: usize,
@@ -412,7 +412,7 @@ impl TensorCheck {
         check
     }
 
-    pub(crate) fn stack<B: Backend, const D: usize, K: BasicOps<B>>(
+    pub(crate) fn stack<B: Backend, const D: usize, K: BasicDenseOps<B>>(
         tensors: &[Tensor<B, D, K>],
         dim: usize,
     ) -> Self {
@@ -457,7 +457,7 @@ impl TensorCheck {
         check
     }
 
-    pub(crate) fn cat<B: Backend, const D: usize, K: BasicOps<B>>(
+    pub(crate) fn cat<B: Backend, const D: usize, K: BasicDenseOps<B>>(
         tensors: &[Tensor<B, D, K>],
         dim: usize,
     ) -> Self {

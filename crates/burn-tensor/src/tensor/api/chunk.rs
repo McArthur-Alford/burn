@@ -1,5 +1,5 @@
 use super::narrow::narrow;
-use crate::{backend::Backend, BasicOps, TensorKind};
+use crate::{backend::Backend, BasicDenseOps, TensorKind};
 use alloc::vec::Vec;
 
 /// Split the tensor along the given dimension into chunks.
@@ -20,7 +20,7 @@ use alloc::vec::Vec;
 /// Ideally, it is supposed to be implemented by the backend and the backend implementation will be resolved
 /// by static dispatch. It is not designed for direct usage by users, and not recommended to import
 /// or use this function directly.
-pub fn chunk<B: Backend, const D: usize, K: TensorKind<B> + BasicOps<B>>(
+pub fn chunk<B: Backend, const D: usize, K: TensorKind<B> + BasicDenseOps<B>>(
     tensor: K::Primitive<D>,
     chunks: usize,
     dim: usize,

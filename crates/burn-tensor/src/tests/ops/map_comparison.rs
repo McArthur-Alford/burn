@@ -2,7 +2,7 @@
 mod tests {
     use super::*;
     use burn_tensor::{
-        backend::Backend, BasicOps, Bool, Data, Element, Float, Int, Numeric, Tensor, TensorKind,
+        backend::Backend, BasicDenseOps, Bool, Data, Element, Float, Int, Numeric, Tensor, TensorKind,
     };
 
     type IntElem = <TestBackend as Backend>::IntElem;
@@ -129,7 +129,7 @@ mod tests {
 
     fn equal<K, E>()
     where
-        K: Numeric<TestBackend, Elem = E> + BasicOps<TestBackend, Elem = E>,
+        K: Numeric<TestBackend, Elem = E> + BasicDenseOps<TestBackend, Elem = E>,
         E: Element,
     {
         let data_1 = Data::<f32, 2>::from([[0.0, 1.0, 2.0], [3.0, 4.0, 5.0]]).convert();
@@ -148,7 +148,7 @@ mod tests {
 
     fn not_equal<K, E>()
     where
-        K: Numeric<TestBackend, Elem = E> + BasicOps<TestBackend, Elem = E>,
+        K: Numeric<TestBackend, Elem = E> + BasicDenseOps<TestBackend, Elem = E>,
         E: Element,
     {
         let data_1 = Data::<f32, 2>::from([[0.0, 1.0, 2.0], [3.0, 4.0, 5.0]]).convert();
@@ -167,7 +167,7 @@ mod tests {
 
     fn equal_elem<K, E>()
     where
-        K: Numeric<TestBackend, Elem = E> + BasicOps<TestBackend, Elem = E>,
+        K: Numeric<TestBackend, Elem = E> + BasicDenseOps<TestBackend, Elem = E>,
         E: Element,
     {
         let data_1 = Data::<f32, 2>::from([[0.0, 1.0, 2.0], [3.0, 2.0, 5.0]]).convert();
@@ -183,7 +183,7 @@ mod tests {
 
     fn not_equal_elem<K, E>()
     where
-        K: Numeric<TestBackend, Elem = E> + BasicOps<TestBackend, Elem = E>,
+        K: Numeric<TestBackend, Elem = E> + BasicDenseOps<TestBackend, Elem = E>,
         E: Element,
     {
         let data_1 = Data::<f32, 2>::from([[0.0, 1.0, 2.0], [3.0, 2.0, 5.0]]).convert();
@@ -199,7 +199,7 @@ mod tests {
 
     fn greater_elem<K, E>()
     where
-        K: Numeric<TestBackend, Elem = E> + BasicOps<TestBackend, Elem = E>,
+        K: Numeric<TestBackend, Elem = E> + BasicDenseOps<TestBackend, Elem = E>,
         E: Element,
     {
         let data_1 = Data::<f32, 2>::from([[0.0, 1.0, 2.0], [3.0, 4.0, 5.0]]).convert();
@@ -215,7 +215,7 @@ mod tests {
 
     fn greater_equal_elem<K, E>()
     where
-        K: Numeric<TestBackend, Elem = E> + BasicOps<TestBackend, Elem = E>,
+        K: Numeric<TestBackend, Elem = E> + BasicDenseOps<TestBackend, Elem = E>,
         E: Element,
     {
         let data_1 = Data::<f32, 2>::from([[0.0, 1.0, 2.0], [3.0, 4.0, 5.0]]).convert();
@@ -231,7 +231,7 @@ mod tests {
 
     fn greater<K, E>()
     where
-        K: Numeric<TestBackend, Elem = E> + BasicOps<TestBackend, Elem = E>,
+        K: Numeric<TestBackend, Elem = E> + BasicDenseOps<TestBackend, Elem = E>,
         E: Element,
     {
         let data_1 = Data::<f32, 2>::from([[0.0, 1.0, 2.0], [3.0, 4.0, 5.0]]).convert();
@@ -250,7 +250,7 @@ mod tests {
 
     fn greater_equal<K, E>()
     where
-        K: Numeric<TestBackend, Elem = E> + BasicOps<TestBackend, Elem = E>,
+        K: Numeric<TestBackend, Elem = E> + BasicDenseOps<TestBackend, Elem = E>,
         E: Element,
     {
         let data_1 = Data::<f32, 2>::from([[0.0, 1.0, 2.0], [3.0, 4.0, 5.0]]).convert();
@@ -269,7 +269,7 @@ mod tests {
 
     fn lower_elem<K, E>()
     where
-        K: Numeric<TestBackend, Elem = E> + BasicOps<TestBackend, Elem = E>,
+        K: Numeric<TestBackend, Elem = E> + BasicDenseOps<TestBackend, Elem = E>,
         E: Element,
     {
         let data_1 = Data::<f32, 2>::from([[0.0, 1.0, 2.0], [3.0, 4.0, 5.0]]).convert();
@@ -285,7 +285,7 @@ mod tests {
 
     fn lower_equal_elem<K, E>()
     where
-        K: Numeric<TestBackend, Elem = E> + BasicOps<TestBackend, Elem = E>,
+        K: Numeric<TestBackend, Elem = E> + BasicDenseOps<TestBackend, Elem = E>,
         E: Element,
     {
         let data_1 = Data::<f32, 2>::from([[0.0, 1.0, 2.0], [3.0, 4.0, 5.0]]).convert();
@@ -301,7 +301,7 @@ mod tests {
 
     fn lower<K, E>()
     where
-        K: Numeric<TestBackend, Elem = E> + BasicOps<TestBackend, Elem = E>,
+        K: Numeric<TestBackend, Elem = E> + BasicDenseOps<TestBackend, Elem = E>,
         E: Element,
     {
         let data_1 = Data::<f32, 2>::from([[0.0, 1.0, 2.0], [3.0, 4.0, 5.0]]).convert();
@@ -320,7 +320,7 @@ mod tests {
 
     fn lower_equal<K, E>()
     where
-        K: Numeric<TestBackend, Elem = E> + BasicOps<TestBackend, Elem = E>,
+        K: Numeric<TestBackend, Elem = E> + BasicDenseOps<TestBackend, Elem = E>,
         E: Element,
     {
         let data_1 = Data::<f32, 2>::from([[0.0, 1.0, 2.0], [3.0, 4.0, 5.0]]).convert();

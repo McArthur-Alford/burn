@@ -1,4 +1,7 @@
-use crate::backend::{Backend, BackendBridge};
+use crate::{
+    backend::{Backend, BackendBridge},
+    sparse_backend::SparseBackend,
+};
 
 // We provide some type aliases to improve the readability of using associated types without
 // having to use the disambiguation syntax.
@@ -20,3 +23,5 @@ pub type FloatTensor<B, const D: usize> = <B as Backend>::FloatTensorPrimitive<D
 pub type IntTensor<B, const D: usize> = <B as Backend>::IntTensorPrimitive<D>;
 /// Boolean tensor primitive type used by the backend.
 pub type BoolTensor<B, const D: usize> = <B as Backend>::BoolTensorPrimitive<D>;
+/// Sparse tensor primitive type used by the backend.
+pub type SparseTensor<B, const D: usize> = <B as SparseBackend>::SparseTensorPrimitive<D>;

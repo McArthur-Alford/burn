@@ -16,6 +16,9 @@ pub mod activation;
 /// The backend module.
 pub mod backend;
 
+/// The sparse bacakend module.
+pub mod sparse_backend;
+
 /// The container module.
 pub mod container;
 
