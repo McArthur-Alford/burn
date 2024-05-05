@@ -39,6 +39,7 @@ vision = ["burn-core/vision"]
 # Backends
 autodiff = ["burn-core/autodiff"]
 fusion = ["burn-core/fusion"]
+sparse = ["burn-core/sparse"]
 
 ## Backend features
 cuda = ["burn-core/cuda"]
