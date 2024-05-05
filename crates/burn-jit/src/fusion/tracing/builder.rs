@@ -1,7 +1,9 @@
 use super::{trace::Trace, Scalars};
 use crate::codegen::dialect::gpu::{self, Operation, Variable};
-use burn_fusion::{TensorDescription, TensorId};
-use burn_tensor::Element;
+use burn_tensor::{
+    repr::{TensorDescription, TensorId, TensorStatus},
+    Element,
+};
 use hashbrown::HashMap;
 
 /// Type facilitating building a [trace](Trace) by doing most of the conversions between the
@@ -35,8 +37,9 @@ impl TraceBuilder {
     }
 
     /// Create a variable from an input [tensor description](TensorDescription).
-    pub fn input(&mut self, tensor: &TensorDescription, elem: gpu::Elem) -> gpu::Variable {
+    pub fn input(&mut self, tensor: &TensorDescription) -> gpu::Variable {
         let already_exists = self.tensors.contains_key(&tensor.id);
+        let elem = tensor.dtype.into();
 
         let variable = match already_exists {
             false => {
@@ -70,7 +73,8 @@ impl TraceBuilder {
     }
 
     /// Create a variable from an output [tensor description](TensorDescription).
-    pub fn output(&mut self, tensor: &TensorDescription, elem: gpu::Elem) -> gpu::Variable {
+    pub fn output(&mut self, tensor: &TensorDescription) -> gpu::Variable {
+        let elem = tensor.dtype.into();
         // Update the tensor description to the new version.
         self.tensors.insert(tensor.id, (tensor.clone(), elem));
 
@@ -88,14 +92,14 @@ impl TraceBuilder {
     /// Create a variable from an input [scalar](Element).
     pub fn scalar<E: Element>(&mut self, _value: &E, elem_type: gpu::Elem) -> gpu::Variable {
         match elem_type {
-            gpu::Elem::Float => {
+            gpu::Elem::Float(_) => {
                 let var = self
                     .scope
                     .read_scalar(self.scalars.num_float as u16, elem_type);
                 self.scalars.num_float += 1;
                 var
             }
-            gpu::Elem::Int => {
+            gpu::Elem::Int(_) => {
                 let var = self
                     .scope
                     .read_scalar(self.scalars.num_int as u16, elem_type);
@@ -213,6 +217,11 @@ impl TraceBuilder {
                         &mut local_tensor_ids_output,
                     ),
                     gpu::Operator::Index(op) => mark_binary(
+                        op,
+                        &mut local_tensor_ids_input,
+                        &mut local_tensor_ids_output,
+                    ),
+                    gpu::Operator::UncheckedIndex(op) => mark_binary(
                         op,
                         &mut local_tensor_ids_input,
                         &mut local_tensor_ids_output,
@@ -341,6 +350,11 @@ impl TraceBuilder {
                         &mut local_tensor_ids_input,
                         &mut local_tensor_ids_output,
                     ),
+                    gpu::Operator::UncheckedIndexAssign(op) => mark_binary(
+                        op,
+                        &mut local_tensor_ids_input,
+                        &mut local_tensor_ids_output,
+                    ),
                     gpu::Operator::BitwiseAnd(op) => mark_binary(
                         op,
                         &mut local_tensor_ids_input,
@@ -376,6 +390,12 @@ impl TraceBuilder {
                             // Nothing to do here.
                         }
                         gpu::Procedure::WriteGlobal(_) => {
+                            // Nothing to do here.
+                        }
+                        gpu::Procedure::CheckedIndex(_) => {
+                            // Nothing to do here.
+                        }
+                        gpu::Procedure::CheckedIndexAssign(_) => {
                             // Nothing to do here.
                         }
                         gpu::Procedure::ConditionalAssign(proc) => {
@@ -415,7 +435,7 @@ impl TraceBuilder {
         // are going to be used after the fused kernel by other operations.
         for entry in self.tensors.values() {
             let (tensor, _) = &entry;
-            if let burn_fusion::TensorStatus::ReadOnly = tensor.status {
+            if let TensorStatus::ReadOnly = tensor.status {
                 if self.output_to_local.contains_key(&tensor.id) {
                     outputs.push(entry.clone());
                 }

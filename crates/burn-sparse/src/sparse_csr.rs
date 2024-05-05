@@ -49,4 +49,10 @@ where
     ) -> burn_tensor::ops::SparseTensor<Self, D> {
         todo!()
     }
+
+    fn sparse_shape<const D: usize>(
+        tensor: &burn_tensor::ops::SparseTensor<Self, D>,
+    ) -> burn_tensor::Shape<D> {
+        todo!()
+    }
 }

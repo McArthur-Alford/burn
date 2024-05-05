@@ -59,6 +59,11 @@ where
     pub fn to_device(self, device: &B::Device) -> Self {
         Self::new(K::to_device(self.primitive, device))
     }
+
+    /// Returns the shape of the current tensor.
+    pub fn shape(&self) -> Shape<D> {
+        K::shape(&self.primitive)
+    }
 }
 
 impl<B, const D: usize, K> Tensor<B, D, K>
@@ -93,11 +98,6 @@ where
     /// Equivalent to `tensor.shape().dims`.
     pub fn dims(&self) -> [usize; D] {
         Self::shape(self).dims
-    }
-
-    /// Returns the shape of the current tensor.
-    pub fn shape(&self) -> Shape<D> {
-        K::shape(&self.primitive)
     }
 
     /// Reshape the tensor to have the given shape.
@@ -579,10 +579,6 @@ where
     }
 
     /// Repeat the tensor along the given dimension.
-    ///
-    /// # Panics
-    ///
-    /// If the selected dimension more than one item.
     pub fn repeat(self, dim: usize, times: usize) -> Self {
         Self::new(K::repeat(self.primitive, dim, times))
     }
@@ -1134,6 +1130,26 @@ pub trait BasicOps<B: Backend>: TensorKind<B> {
         tensor: Self::Primitive<D>,
         device: &B::Device,
     ) -> Self::Primitive<D>;
+
+    /// Returns the shape of the tensor.
+    ///
+    /// # Arguments
+    ///
+    /// * `tensor` - The tensor.
+    ///
+    /// # Returns
+    ///
+    /// The shape of the tensor.
+    ///
+    /// # Remarks
+    ///
+    /// This is a low-level function used internally by the library to call different backend functions
+    /// with static dispatch. It is not designed for direct usage by users, and not recommended to import
+    /// or use this function directly.
+    ///
+    /// For getting the shape of a tensor, users should prefer the [Tensor::shape](Tensor::shape) function,
+    /// which is more high-level and designed for public use.
+    fn shape<const D: usize>(tensor: &Self::Primitive<D>) -> Shape<D>;
 }
 
 /// Trait that list all operations that can be applied on all sparse tensors.
@@ -1177,26 +1193,6 @@ pub trait BasicDenseOps<B: Backend>: BasicOps<B> {
     /// For creating empty tensors, users should prefer the [Tensor::empty](Tensor::empty) function,
     /// which is more high-level and designed for public use.
     fn empty<const D: usize>(shape: Shape<D>, device: &B::Device) -> Self::Primitive<D>;
-
-    /// Returns the shape of the tensor.
-    ///
-    /// # Arguments
-    ///
-    /// * `tensor` - The tensor.
-    ///
-    /// # Returns
-    ///
-    /// The shape of the tensor.
-    ///
-    /// # Remarks
-    ///
-    /// This is a low-level function used internally by the library to call different backend functions
-    /// with static dispatch. It is not designed for direct usage by users, and not recommended to import
-    /// or use this function directly.
-    ///
-    /// For getting the shape of a tensor, users should prefer the [Tensor::shape](Tensor::shape) function,
-    /// which is more high-level and designed for public use.
-    fn shape<const D: usize>(tensor: &Self::Primitive<D>) -> Shape<D>;
 
     /// Reshapes the tensor.
     ///
@@ -1572,15 +1568,15 @@ impl<B: Backend> BasicOps<B> for Float {
     ) -> Self::Primitive<D> {
         B::float_to_device(tensor, device)
     }
+
+    fn shape<const D: usize>(tensor: &Self::Primitive<D>) -> Shape<D> {
+        B::float_shape(tensor)
+    }
 }
 
 impl<B: Backend> BasicDenseOps<B> for Float {
     fn empty<const D: usize>(shape: Shape<D>, device: &B::Device) -> Self::Primitive<D> {
         B::float_empty(shape, device)
-    }
-
-    fn shape<const D: usize>(tensor: &Self::Primitive<D>) -> Shape<D> {
-        B::float_shape(tensor)
     }
 
     fn reshape<const D1: usize, const D2: usize>(
@@ -1700,14 +1696,15 @@ impl<B: Backend> BasicOps<B> for Int {
     ) -> Self::Primitive<D> {
         B::int_to_device(tensor, device)
     }
+
+    fn shape<const D: usize>(tensor: &Self::Primitive<D>) -> Shape<D> {
+        B::int_shape(tensor)
+    }
 }
 
 impl<B: Backend> BasicDenseOps<B> for Int {
     fn empty<const D: usize>(shape: Shape<D>, device: &B::Device) -> Self::Primitive<D> {
         B::int_empty(shape, device)
-    }
-    fn shape<const D: usize>(tensor: &Self::Primitive<D>) -> Shape<D> {
-        B::int_shape(tensor)
     }
 
     fn reshape<const D1: usize, const D2: usize>(
@@ -1827,14 +1824,15 @@ impl<B: Backend> BasicOps<B> for Bool {
     ) -> Self::Primitive<D> {
         B::bool_to_device(tensor, device)
     }
+
+    fn shape<const D: usize>(tensor: &Self::Primitive<D>) -> Shape<D> {
+        B::bool_shape(tensor)
+    }
 }
 
 impl<B: Backend> BasicDenseOps<B> for Bool {
     fn empty<const D: usize>(shape: Shape<D>, device: &B::Device) -> Self::Primitive<D> {
         B::bool_empty(shape, device)
-    }
-    fn shape<const D: usize>(tensor: &Self::Primitive<D>) -> Shape<D> {
-        B::bool_shape(tensor)
     }
 
     fn reshape<const D1: usize, const D2: usize>(
@@ -1953,6 +1951,10 @@ impl<B: SparseBackend> BasicOps<B> for Sparse {
         device: &<B as Backend>::Device,
     ) -> Self::Primitive<D> {
         B::sparse_to_device(tensor, device)
+    }
+
+    fn shape<const D: usize>(tensor: &Self::Primitive<D>) -> Shape<D> {
+        B::sparse_shape(tensor)
     }
 }
 

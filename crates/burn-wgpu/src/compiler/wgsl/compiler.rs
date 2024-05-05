@@ -1,13 +1,11 @@
 use super::LocalArray;
 use super::{shader::ComputeShader, Item, SharedMemory};
 use crate::compiler::wgsl;
-use crate::{FloatElement, IntElement};
 use burn_jit::gpu;
-use std::marker::PhantomData;
 
 /// Wgsl Compiler.
-#[derive(Clone)]
-pub struct WgslCompiler<F: FloatElement, I: IntElement> {
+#[derive(Clone, Default)]
+pub struct WgslCompiler {
     num_inputs: usize,
     num_outputs: usize,
     local_invocation_index: bool,
@@ -21,43 +19,16 @@ pub struct WgslCompiler<F: FloatElement, I: IntElement> {
     num_workgroups: bool,
     shared_memories: Vec<SharedMemory>,
     local_arrays: Vec<LocalArray>,
-    _float: PhantomData<F>,
-    _int: PhantomData<I>,
 }
 
-impl<F: FloatElement, I: IntElement> core::fmt::Debug for WgslCompiler<F, I> {
+impl core::fmt::Debug for WgslCompiler {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("WgslCompiler")
     }
 }
 
-impl<F: FloatElement, I: IntElement> Default for WgslCompiler<F, I> {
-    fn default() -> Self {
-        Self {
-            num_inputs: 0,
-            num_outputs: 0,
-            local_invocation_index: false,
-            local_invocation_id: false,
-            global_invocation_id: false,
-            workgroup_id: false,
-            rank: false,
-            id: false,
-            stride: false,
-            shape: false,
-            num_workgroups: false,
-            shared_memories: Vec::default(),
-            local_arrays: Vec::default(),
-            _float: PhantomData,
-            _int: PhantomData,
-        }
-    }
-}
-
-impl<F: FloatElement, I: IntElement> burn_jit::Compiler for WgslCompiler<F, I> {
+impl burn_jit::Compiler for WgslCompiler {
     type Representation = ComputeShader;
-    type Float = F;
-    type Int = I;
-    type FullPrecisionCompiler = WgslCompiler<f32, i32>;
 
     fn compile(shader: gpu::ComputeShader) -> Self::Representation {
         let mut compiler = Self::default();
@@ -73,7 +44,7 @@ impl<F: FloatElement, I: IntElement> burn_jit::Compiler for WgslCompiler<F, I> {
     }
 }
 
-impl<F: FloatElement, I: IntElement> WgslCompiler<F, I> {
+impl WgslCompiler {
     fn compile_shader(&mut self, mut value: gpu::ComputeShader) -> wgsl::ComputeShader {
         self.num_inputs = value.inputs.len();
         self.num_outputs = value.outputs.len();
@@ -128,8 +99,16 @@ impl<F: FloatElement, I: IntElement> WgslCompiler<F, I> {
 
     fn compile_elem(value: gpu::Elem) -> wgsl::Elem {
         match value {
-            gpu::Elem::Float => F::wgpu_elem(),
-            gpu::Elem::Int => I::wgpu_elem(),
+            gpu::Elem::Float(f) => match f {
+                gpu::FloatKind::F16 => panic!("f16 is not yet supported"),
+                gpu::FloatKind::BF16 => panic!("f64 is not a valid WgpuElement"),
+                gpu::FloatKind::F32 => wgsl::Elem::F32,
+                gpu::FloatKind::F64 => panic!("f64 is not a valid WgpuElement"),
+            },
+            gpu::Elem::Int(i) => match i {
+                gpu::IntKind::I32 => wgsl::Elem::I32,
+                gpu::IntKind::I64 => panic!("i64 is not a valid WgpuElement"),
+            },
             gpu::Elem::UInt => wgsl::Elem::U32,
             gpu::Elem::Bool => wgsl::Elem::Bool,
         }
@@ -340,6 +319,14 @@ impl<F: FloatElement, I: IntElement> WgslCompiler<F, I> {
                 proc.expand(scope);
                 compile(scope);
             }
+            gpu::Procedure::CheckedIndex(proc) => {
+                proc.expand(scope);
+                compile(scope);
+            }
+            gpu::Procedure::CheckedIndexAssign(proc) => {
+                proc.expand(scope);
+                compile(scope);
+            }
             gpu::Procedure::IndexOffsetGlobalWithLayout(proc) => {
                 proc.expand(scope);
                 compile(scope);
@@ -400,6 +387,11 @@ impl<F: FloatElement, I: IntElement> WgslCompiler<F, I> {
                 out: self.compile_variable(op.out),
             },
             gpu::Operator::Index(op) => wgsl::Instruction::Index {
+                lhs: self.compile_variable(op.lhs),
+                rhs: self.compile_variable(op.rhs),
+                out: self.compile_variable(op.out),
+            },
+            gpu::Operator::UncheckedIndex(op) => wgsl::Instruction::Index {
                 lhs: self.compile_variable(op.lhs),
                 rhs: self.compile_variable(op.rhs),
                 out: self.compile_variable(op.out),
@@ -522,6 +514,11 @@ impl<F: FloatElement, I: IntElement> WgslCompiler<F, I> {
                 rhs: self.compile_variable(op.rhs),
                 out: self.compile_variable(op.out),
             },
+            gpu::Operator::UncheckedIndexAssign(op) => wgsl::Instruction::IndexAssign {
+                lhs: self.compile_variable(op.lhs),
+                rhs: self.compile_variable(op.rhs),
+                out: self.compile_variable(op.out),
+            },
             gpu::Operator::And(op) => wgsl::Instruction::And {
                 lhs: self.compile_variable(op.lhs),
                 rhs: self.compile_variable(op.rhs),
@@ -615,6 +612,14 @@ fn register_extensions(instructions: &[wgsl::Instruction]) -> Vec<wgsl::Extensio
             #[cfg(target_os = "macos")]
             wgsl::Instruction::Tanh { input, out: _ } => {
                 register_extension(wgsl::Extension::SafeTanh(input.item()))
+            }
+            wgsl::Instruction::If {
+                cond: _,
+                instructions,
+            } => {
+                for extension in register_extensions(instructions) {
+                    register_extension(extension);
+                }
             }
             _ => {}
         }

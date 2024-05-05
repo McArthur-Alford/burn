@@ -217,9 +217,21 @@ macro_rules! gpu {
             gpu!(binary $lhs, $rhs, $out)
         ));
     };
+    // out = unchecked(lhs[rhs])
+    ($scope:expr, $out:ident = unchecked($lhs:ident[$rhs:expr])) => {
+        $scope.register($crate::codegen::dialect::gpu::Operator::UncheckedIndex(
+            gpu!(binary $lhs, $rhs, $out)
+        ));
+    };
     // out[lhs] = rhs
     ($scope:expr, $out:ident[$lhs:ident] = $rhs:expr) => {
         $scope.register($crate::codegen::dialect::gpu::Operator::IndexAssign(
+            gpu!(binary $lhs, $rhs, $out)
+        ));
+    };
+    // unchecked(out[lhs]) = rhs
+    ($scope:expr, unchecked($out:ident[$lhs:ident]) = $rhs:expr) => {
+        $scope.register($crate::codegen::dialect::gpu::Operator::UncheckedIndexAssign(
             gpu!(binary $lhs, $rhs, $out)
         ));
     };
@@ -390,13 +402,13 @@ impl From<bool> for Variable {
 
 impl From<i32> for Variable {
     fn from(value: i32) -> Self {
-        Self::ConstantScalar(value as f64, super::Elem::Int)
+        Self::ConstantScalar(value as f64, super::Elem::Int(super::IntKind::I32))
     }
 }
 
 impl From<f32> for Variable {
     fn from(value: f32) -> Self {
-        Self::ConstantScalar(value as f64, super::Elem::Float)
+        Self::ConstantScalar(value as f64, super::Elem::Float(super::FloatKind::F32))
     }
 }
 

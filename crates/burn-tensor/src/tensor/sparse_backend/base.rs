@@ -1,7 +1,7 @@
 use crate::{
     backend::Backend,
     ops::{FloatTensor, SparseTensor},
-    Device,
+    Device, Shape,
 };
 
 pub trait SparseBackend: Backend {
@@ -50,4 +50,15 @@ pub trait SparseBackend: Backend {
         tensor: SparseTensor<Self, D>,
         device: &Device<Self>,
     ) -> SparseTensor<Self, D>;
+
+    /// Gets the shape of the tensor.
+    ///
+    /// # Arguments
+    ///
+    /// * `tensor` - The tensor.
+    ///
+    /// # Returns
+    ///
+    /// The shape of the tensor.
+    fn sparse_shape<const D: usize>(tensor: &SparseTensor<Self, D>) -> Shape<D>;
 }
