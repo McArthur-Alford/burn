@@ -1,19 +1,29 @@
-use burn_tensor::{backend::Backend, sparse_backend::SparseBackend};
+use burn_tensor::{backend::Backend, sparse_backend::SparseBackend, ElementConversion};
 
 use crate::{SparseCOO, SparseDecorator, SparseRepresentation};
 
 #[derive(Debug, Default, Clone)]
-pub struct SparseCOOPrimitive {}
+pub struct SparseCOOTensor<B: Backend, const D: usize> {
+    coordinates: B::IntTensorPrimitive<2>,
+    values: B::FloatTensorPrimitive<1>,
+}
 
 impl<B> SparseBackend for SparseDecorator<B, SparseCOO>
 where
     B: Backend,
 {
-    type SparseTensorPrimitive<const D: usize> = <SparseCOO as SparseRepresentation>::Primitive;
+    type SparseTensorPrimitive<const D: usize> = SparseCOOTensor<B, D>;
 
     fn sparse_to_sparse<const D: usize>(
         dense: Self::FloatTensorPrimitive<D>,
     ) -> Self::SparseTensorPrimitive<D> {
+        // // Get nonzero elements
+        // let shape = B::float_shape(&dense);
+        // shape.dims[0];
+
+        // B::int_arange(, )
+        // let significant = B::float_not_equal_elem(dense, 0.elem());
+
         todo!()
     }
 

@@ -1,4 +1,6 @@
-use crate::{sparse_coo::SparseCOOPrimitive, sparse_csr::SparseCSRPrimitive};
+use burn_tensor::{backend::Backend, sparse_backend::SparseBackend};
+
+use crate::{sparse_coo::SparseCOOTensor, sparse_csr::SparseCSRTensor};
 
 #[derive(Debug, Default, Clone)]
 pub struct SparseCSR;
@@ -7,22 +9,16 @@ pub struct SparseCSR;
 pub struct SparseCOO;
 
 pub trait SparseRepresentation: Clone + Default + Send + Sync + 'static + core::fmt::Debug {
-    type Primitive: Clone + Send + 'static + core::fmt::Debug;
-
     fn name() -> String;
 }
 
 impl SparseRepresentation for SparseCOO {
-    type Primitive = SparseCOOPrimitive;
-
     fn name() -> String {
         "SparseCOO".to_owned()
     }
 }
 
 impl SparseRepresentation for SparseCSR {
-    type Primitive = SparseCSRPrimitive;
-
     fn name() -> String {
         "SparseCSR".to_owned()
     }

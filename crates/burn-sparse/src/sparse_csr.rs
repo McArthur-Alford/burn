@@ -1,15 +1,17 @@
-use burn_tensor::{backend::Backend, sparse_backend::SparseBackend};
-
 use crate::{SparseCSR, SparseDecorator, SparseRepresentation};
+use burn_tensor::{backend::Backend, sparse_backend::SparseBackend};
+use core::marker::PhantomData;
 
 #[derive(Debug, Default, Clone)]
-pub struct SparseCSRPrimitive {}
+pub struct SparseCSRTensor<B: Backend, const D: usize> {
+    _b: PhantomData<B>,
+}
 
 impl<B> SparseBackend for SparseDecorator<B, SparseCSR>
 where
     B: Backend,
 {
-    type SparseTensorPrimitive<const D: usize> = <SparseCSR as SparseRepresentation>::Primitive;
+    type SparseTensorPrimitive<const D: usize> = SparseCSRTensor<B, D>;
 
     fn sparse_to_sparse<const D: usize>(
         dense: Self::FloatTensorPrimitive<D>,
