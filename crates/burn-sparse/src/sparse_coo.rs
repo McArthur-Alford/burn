@@ -1,10 +1,13 @@
-use burn_tensor::{backend::Backend, sparse_backend::SparseBackend};
+use burn_tensor::{
+    backend::Backend, sparse_backend::SparseBackend, Bool, BroadcastArgs, ElementConversion, Float,
+    Int, Shape, Tensor,
+};
 
 use crate::{SparseCOO, SparseDecorator};
 
 #[derive(Debug, Default, Clone)]
 pub struct SparseCOOTensor<B: Backend, const D: usize> {
-    coordinates: B::IntTensorPrimitive<2>,
+    coordinates: Vec<B::IntTensorPrimitive<1>>,
     values: B::FloatTensorPrimitive<1>,
 }
 
@@ -17,14 +20,28 @@ where
     fn sparse_to_sparse<const D: usize>(
         dense: Self::FloatTensorPrimitive<D>,
     ) -> Self::SparseTensorPrimitive<D> {
-        // // Get nonzero elements
-        // let shape = B::float_shape(&dense);
-        // shape.dims[0];
+        let device = B::float_device(&dense);
+        let shape = B::float_shape(&dense);
+        let significant = B::float_not_equal_elem(dense.clone(), 0.elem());
 
-        // B::int_arange(, )
-        // let significant = B::float_not_equal_elem(dense, 0.elem());
+        let coordinates = B::bool_nonzero(significant.clone());
 
-        todo!()
+        let number_nonzero = B::int_shape(&coordinates[0]).num_elements();
+
+        let values = B::float_gather(
+            0,
+            B::float_reshape::<D, 1>(dense, [shape.num_elements()].into()),
+            B::bool_nonzero(B::bool_reshape::<D, 1>(
+                significant,
+                [shape.num_elements()].into(),
+            ))
+            .remove(0),
+        );
+
+        Self::SparseTensorPrimitive {
+            coordinates,
+            values,
+        }
     }
 
     fn sparse_to_dense<const D: usize>(
@@ -71,7 +88,7 @@ where
         device: &burn_tensor::Device<B>,
     ) -> burn_tensor::ops::SparseTensor<Self, D> {
         SparseCOOTensor {
-            coordinates: B::int_empty(burn_tensor::Shape::new([0, 0]), &device),
+            coordinates: Vec::new(),
             values: B::float_empty(burn_tensor::Shape::new([0]), &device),
         }
     }

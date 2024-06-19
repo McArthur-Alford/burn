@@ -1,17 +1,27 @@
 use alloc::vec::Vec;
 use core::convert::TryInto;
 
-use crate::check;
 use crate::check::TensorCheck;
 use crate::ops::FullPrecisionBackend;
+use crate::sparse_backend::SparseBackend;
 use crate::tensor::backend::Backend;
 use crate::tensor::stats;
 use crate::tensor::{Data, Distribution, Shape};
 use crate::Int;
 use crate::Tensor;
+use crate::{check, Sparse};
 
 #[cfg(all(not(feature = "wasm-sync"), target_family = "wasm"))]
 use crate::{argsort, sort, sort_with_indices, Float};
+
+impl<const D: usize, B> Tensor<B, D>
+where
+    B: SparseBackend,
+{
+    pub fn to_sparse(self) -> Tensor<B, D, Sparse> {
+        Tensor::new(B::sparse_to_sparse(self.primitive))
+    }
+}
 
 impl<const D: usize, B> Tensor<B, D>
 where
