@@ -7,6 +7,11 @@ use crate::{
 pub trait SparseBackend: Backend {
     type SparseTensorPrimitive<const D: usize>: Clone + Send + 'static + core::fmt::Debug;
 
+    fn sparse_empty<const D: usize>(
+        shape: Shape<D>,
+        device: &Device<Self>,
+    ) -> SparseTensor<Self, D>;
+
     fn sparse_to_sparse<const D: usize>(
         dense: Self::FloatTensorPrimitive<D>,
     ) -> Self::SparseTensorPrimitive<D>;

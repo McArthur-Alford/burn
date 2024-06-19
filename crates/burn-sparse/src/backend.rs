@@ -1,4 +1,4 @@
-use burn_tensor::{backend::Backend, sparse_backend::SparseBackend};
+use burn_tensor::backend::Backend;
 use core::marker::PhantomData;
 use derive_new::new;
 

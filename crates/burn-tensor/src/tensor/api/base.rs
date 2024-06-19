@@ -64,6 +64,11 @@ where
     pub fn shape(&self) -> Shape<D> {
         K::shape(&self.primitive)
     }
+
+    /// Create an empty tensor of the given shape.
+    pub fn empty<S: Into<Shape<D>>>(shape: S, device: &B::Device) -> Self {
+        Self::new(K::empty(shape.into(), device))
+    }
 }
 
 impl<B, const D: usize, K> Tensor<B, D, K>
@@ -86,11 +91,6 @@ where
     /// Converts from a primitive tensor into a tensor.
     pub fn from_primitive(tensor: K::Primitive<D>) -> Self {
         Self::new(tensor)
-    }
-
-    /// Create an empty tensor of the given shape.
-    pub fn empty<S: Into<Shape<D>>>(shape: S, device: &B::Device) -> Self {
-        Self::new(K::empty(shape.into(), device))
     }
 
     /// Returns the dimensions of the current tensor.
@@ -1150,29 +1150,7 @@ pub trait BasicOps<B: Backend>: TensorKind<B> {
     /// For getting the shape of a tensor, users should prefer the [Tensor::shape](Tensor::shape) function,
     /// which is more high-level and designed for public use.
     fn shape<const D: usize>(tensor: &Self::Primitive<D>) -> Shape<D>;
-}
 
-/// Trait that list all operations that can be applied on all sparse tensors.
-///
-/// # Warnings
-///
-/// This is an internal trait, use the public API provided by [tensor struct](Tensor).
-pub trait BasicSparseOps<B: SparseBackend>: BasicOps<B> {
-    fn to_sparse<const D: usize>(
-        tensor: Self::Primitive<D>,
-    ) -> <Float as TensorKind<B>>::Primitive<D>;
-
-    fn to_dense<const D: usize>(
-        tensor: <Float as TensorKind<B>>::Primitive<D>,
-    ) -> Self::Primitive<D>;
-}
-
-/// Trait that list all operations that can be applied on all dense tensors.
-///
-/// # Warnings
-///
-/// This is an internal trait, use the public API provided by [tensor struct](Tensor).
-pub trait BasicDenseOps<B: Backend>: BasicOps<B> {
     /// Creates an empty tensor with the given shape.
     ///
     /// # Arguments
@@ -1193,7 +1171,43 @@ pub trait BasicDenseOps<B: Backend>: BasicOps<B> {
     /// For creating empty tensors, users should prefer the [Tensor::empty](Tensor::empty) function,
     /// which is more high-level and designed for public use.
     fn empty<const D: usize>(shape: Shape<D>, device: &B::Device) -> Self::Primitive<D>;
+}
 
+/// Trait that list all operations that can be applied on all sparse tensors.
+///
+/// # Warnings
+///
+/// This is an internal trait, use the public API provided by [tensor struct](Tensor).
+pub trait BasicSparseOps<B: SparseBackend>: BasicOps<B> {
+    fn to_sparse<const D: usize>(
+        tensor: Self::Primitive<D>,
+    ) -> <Float as TensorKind<B>>::Primitive<D>;
+
+    fn to_dense<const D: usize>(
+        tensor: <Float as TensorKind<B>>::Primitive<D>,
+    ) -> Self::Primitive<D>;
+}
+
+impl<B: SparseBackend> BasicSparseOps<B> for Sparse {
+    fn to_sparse<const D: usize>(
+        tensor: Self::Primitive<D>,
+    ) -> <Float as TensorKind<B>>::Primitive<D> {
+        todo!()
+    }
+
+    fn to_dense<const D: usize>(
+        tensor: <Float as TensorKind<B>>::Primitive<D>,
+    ) -> Self::Primitive<D> {
+        todo!()
+    }
+}
+
+/// Trait that list all operations that can be applied on all dense tensors.
+///
+/// # Warnings
+///
+/// This is an internal trait, use the public API provided by [tensor struct](Tensor).
+pub trait BasicDenseOps<B: Backend>: BasicOps<B> {
     /// Reshapes the tensor.
     ///
     /// # Arguments
@@ -1572,13 +1586,13 @@ impl<B: Backend> BasicOps<B> for Float {
     fn shape<const D: usize>(tensor: &Self::Primitive<D>) -> Shape<D> {
         B::float_shape(tensor)
     }
-}
 
-impl<B: Backend> BasicDenseOps<B> for Float {
     fn empty<const D: usize>(shape: Shape<D>, device: &B::Device) -> Self::Primitive<D> {
         B::float_empty(shape, device)
     }
+}
 
+impl<B: Backend> BasicDenseOps<B> for Float {
     fn reshape<const D1: usize, const D2: usize>(
         tensor: Self::Primitive<D1>,
         shape: Shape<D2>,
@@ -1700,13 +1714,13 @@ impl<B: Backend> BasicOps<B> for Int {
     fn shape<const D: usize>(tensor: &Self::Primitive<D>) -> Shape<D> {
         B::int_shape(tensor)
     }
-}
 
-impl<B: Backend> BasicDenseOps<B> for Int {
     fn empty<const D: usize>(shape: Shape<D>, device: &B::Device) -> Self::Primitive<D> {
         B::int_empty(shape, device)
     }
+}
 
+impl<B: Backend> BasicDenseOps<B> for Int {
     fn reshape<const D1: usize, const D2: usize>(
         tensor: Self::Primitive<D1>,
         shape: Shape<D2>,
@@ -1828,13 +1842,13 @@ impl<B: Backend> BasicOps<B> for Bool {
     fn shape<const D: usize>(tensor: &Self::Primitive<D>) -> Shape<D> {
         B::bool_shape(tensor)
     }
-}
 
-impl<B: Backend> BasicDenseOps<B> for Bool {
     fn empty<const D: usize>(shape: Shape<D>, device: &B::Device) -> Self::Primitive<D> {
         B::bool_empty(shape, device)
     }
+}
 
+impl<B: Backend> BasicDenseOps<B> for Bool {
     fn reshape<const D1: usize, const D2: usize>(
         tensor: Self::Primitive<D1>,
         shape: Shape<D2>,
@@ -1955,6 +1969,13 @@ impl<B: SparseBackend> BasicOps<B> for Sparse {
 
     fn shape<const D: usize>(tensor: &Self::Primitive<D>) -> Shape<D> {
         B::sparse_shape(tensor)
+    }
+
+    fn empty<const D: usize>(
+        shape: Shape<D>,
+        device: &<B as Backend>::Device,
+    ) -> Self::Primitive<D> {
+        B::sparse_empty(shape, device)
     }
 }
 

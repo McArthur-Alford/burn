@@ -1,6 +1,6 @@
-use burn_tensor::{backend::Backend, sparse_backend::SparseBackend, ElementConversion};
+use burn_tensor::{backend::Backend, sparse_backend::SparseBackend};
 
-use crate::{SparseCOO, SparseDecorator, SparseRepresentation};
+use crate::{SparseCOO, SparseDecorator};
 
 #[derive(Debug, Default, Clone)]
 pub struct SparseCOOTensor<B: Backend, const D: usize> {
@@ -64,5 +64,15 @@ where
         tensor: &burn_tensor::ops::SparseTensor<Self, D>,
     ) -> burn_tensor::Shape<D> {
         todo!()
+    }
+
+    fn sparse_empty<const D: usize>(
+        shape: burn_tensor::Shape<D>,
+        device: &burn_tensor::Device<B>,
+    ) -> burn_tensor::ops::SparseTensor<Self, D> {
+        SparseCOOTensor {
+            coordinates: B::int_empty(burn_tensor::Shape::new([0, 0]), &device),
+            values: B::float_empty(burn_tensor::Shape::new([0]), &device),
+        }
     }
 }

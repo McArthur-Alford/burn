@@ -57,4 +57,11 @@ where
     ) -> burn_tensor::Shape<D> {
         todo!()
     }
+
+    fn sparse_empty<const D: usize>(
+        shape: burn_tensor::Shape<D>,
+        device: &burn_tensor::Device<B>,
+    ) -> burn_tensor::ops::SparseTensor<Self, D> {
+        todo!()
+    }
 }
