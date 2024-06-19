@@ -33,7 +33,9 @@ pub enum UnaryNodeKind {
     Neg,
     Not,
     ReduceMax,
+    ReduceMin,
     ReduceMean,
+    ReduceSum,
     Reciprocal,
     Relu,
     Shape,
@@ -61,7 +63,9 @@ impl UnaryNodeKind {
             Self::Neg => "neg",
             Self::Not => "not",
             Self::ReduceMax => "reduce_max",
+            Self::ReduceMin => "reduce_min",
             Self::ReduceMean => "reduce_mean",
+            Self::ReduceSum => "reduce_sum",
             Self::Reciprocal => "reciprocal",
             Self::Relu => "relu",
             Self::Shape => "shape",
@@ -329,6 +333,35 @@ impl UnaryNode {
         }
     }
 
+    pub(crate) fn reduce_min(input: Type, output: Type, dim: Option<usize>) -> Self {
+        if let Type::Tensor(ref tensor) = output {
+            if let Some(dim) = dim {
+                if tensor.kind == TensorKind::Bool {
+                    // Min is only implemented on numeric tensors
+                    panic!("ReduceMin is not supported for boolean");
+                }
+                // ReduceMin, keepdims=1, axes=[dim]
+                let dim = dim.to_tokens();
+                Self::new(
+                    input,
+                    output,
+                    UnaryNodeKind::ReduceMin,
+                    Rc::new(move |input| quote! { #input.min_dim(#dim) }),
+                )
+            } else {
+                // ReduceMin, keepdims=0, axes=None
+                Self::new(
+                    input,
+                    output,
+                    UnaryNodeKind::ReduceMin,
+                    Rc::new(move |input| quote! { #input.min() }),
+                )
+            }
+        } else {
+            panic!("ReduceMin only supports tensor output");
+        }
+    }
+
     pub(crate) fn reduce_mean(input: Type, output: Type, dim: Option<usize>) -> Self {
         // ReduceMean is constrained to numeric tensors, so no need to check for bool.
         if let Type::Tensor(_) = output {
@@ -352,6 +385,36 @@ impl UnaryNode {
             }
         } else {
             panic!("ReduceMean only supports tensor output");
+        }
+    }
+
+    pub(crate) fn reduce_sum(input: Type, output: Type, dim: Option<usize>) -> Self {
+        if let Type::Tensor(ref tensor) = output {
+            if let Some(dim) = dim {
+                if tensor.kind == TensorKind::Bool {
+                    // Sum is only implemented on numeric tensors
+                    panic!("ReduceSum is not supported for boolean");
+                }
+
+                // ReduceSum, keepdims=1, axes=[dim]
+                let dim = dim.to_tokens();
+                Self::new(
+                    input,
+                    output,
+                    UnaryNodeKind::ReduceSum,
+                    Rc::new(move |input| quote! { #input.sum_dim(#dim) }),
+                )
+            } else {
+                // ReduceSum, keepdims=0, axes=None
+                Self::new(
+                    input,
+                    output,
+                    UnaryNodeKind::ReduceSum,
+                    Rc::new(move |input| quote! { #input.sum() }),
+                )
+            }
+        } else {
+            panic!("ReduceSum only supports tensor output");
         }
     }
 
@@ -598,6 +661,43 @@ mod tests {
     }
 
     #[test]
+    fn test_unary_codegen_reduce_min() {
+        one_node_graph(
+            UnaryNode::reduce_min(
+                Type::Tensor(TensorType::new_float("tensor1", 4)),
+                Type::Tensor(TensorType::new_float("tensor2", 4)),
+                Some(1),
+            ),
+            quote! {
+                pub fn forward(&self, tensor1: Tensor<B, 4>) -> Tensor<B, 4> {
+                    let tensor2 = tensor1.min_dim(1);
+
+                    tensor2
+                }
+            },
+            vec!["tensor1".to_string()],
+            vec!["tensor2".to_string()],
+        );
+
+        one_node_graph(
+            UnaryNode::reduce_min(
+                Type::Tensor(TensorType::new_float("tensor1", 4)),
+                Type::Tensor(TensorType::new_float("tensor2", 1)),
+                None,
+            ),
+            quote! {
+                pub fn forward(&self, tensor1: Tensor<B, 4>) -> Tensor<B, 1> {
+                    let tensor2 = tensor1.min();
+
+                    tensor2
+                }
+            },
+            vec!["tensor1".to_string()],
+            vec!["tensor2".to_string()],
+        );
+    }
+
+    #[test]
     fn test_unary_codegen_reduce_mean() {
         one_node_graph(
             UnaryNode::reduce_mean(
@@ -625,6 +725,43 @@ mod tests {
             quote! {
                 pub fn forward(&self, tensor1: Tensor<B, 4>) -> Tensor<B, 1> {
                     let tensor2 = tensor1.mean();
+
+                    tensor2
+                }
+            },
+            vec!["tensor1".to_string()],
+            vec!["tensor2".to_string()],
+        );
+    }
+
+    #[test]
+    fn test_unary_codegen_reduce_sum() {
+        one_node_graph(
+            UnaryNode::reduce_sum(
+                Type::Tensor(TensorType::new_float("tensor1", 4)),
+                Type::Tensor(TensorType::new_float("tensor2", 4)),
+                Some(1),
+            ),
+            quote! {
+                pub fn forward(&self, tensor1: Tensor<B, 4>) -> Tensor<B, 4> {
+                    let tensor2 = tensor1.sum_dim(1);
+
+                    tensor2
+                }
+            },
+            vec!["tensor1".to_string()],
+            vec!["tensor2".to_string()],
+        );
+
+        one_node_graph(
+            UnaryNode::reduce_sum(
+                Type::Tensor(TensorType::new_float("tensor1", 4)),
+                Type::Tensor(TensorType::new_float("tensor2", 1)),
+                None,
+            ),
+            quote! {
+                pub fn forward(&self, tensor1: Tensor<B, 4>) -> Tensor<B, 1> {
+                    let tensor2 = tensor1.sum();
 
                     tensor2
                 }

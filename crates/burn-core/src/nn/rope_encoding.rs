@@ -2,25 +2,25 @@ use crate as burn;
 use crate::config::Config;
 use crate::module::Module;
 use crate::tensor::backend::Backend;
+use crate::tensor::Int;
 use crate::tensor::Tensor;
 use alloc::vec;
-use burn_tensor::Int;
 
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
 
-/// Configuration to create a [RotaryEncoding](RotaryEncoding) layer.
+/// Configuration to create a [RotaryEncoding](RotaryEncoding) layer using the [init function](RotaryEncodingConfig::init).
 #[derive(Config, Debug)]
 pub struct RotaryEncodingConfig {
     /// Maximum sequence length of input
-    max_sequence_length: usize,
+    pub max_sequence_length: usize,
 
     /// Size of the input embedding or hidden dimension
-    d_model: usize,
+    pub d_model: usize,
 
     /// Scaling factor for frequency computation. Defaults to 10000.0
     #[config(default = "10000.0")]
-    theta: f32,
+    pub theta: f32,
 }
 
 impl RotaryEncodingConfig {
@@ -84,6 +84,8 @@ impl RotaryEncodingConfig {
 /// explicit relative position dependency in self-attention formulation.
 ///
 /// Introduced in the paper: [RoFormer: Enhanced Transformer with Rotary Position Embedding](https://arxiv.org/abs/2104.09864)
+///
+/// Should be created using [RotaryEncodingConfig].
 #[derive(Module, Debug)]
 pub struct RotaryEncoding<B: Backend> {
     /// Frequency Tensor of shape (max_sequence_length, d_model, 2) with real and imaginary components
@@ -104,6 +106,22 @@ impl<B: Backend> RotaryEncoding<B> {
     ///
     /// Panics if the input tensor does not have at least 2 dimensions for sequence length and hidden dimension.
     pub fn forward<const D: usize>(&self, x: Tensor<B, D>) -> Tensor<B, D> {
+        self.apply(x, 0)
+    }
+
+    /// Applies rotary positional encoding to a tensor of dimensions (..., seq_len, d_model)
+    ///
+    /// Arguments:
+    /// * `x` - Input tensor of shape (..., seq_len, d_model). Accommodate both 3D and 4D tensors
+    /// for (batch size, seq_len, hidden_dim) or (batch size, num_heads, seq_len, hidden_dim)
+    /// respectively.
+    /// * `start` - Sequence start position index.
+    ///
+    /// Returns:
+    /// * Output tensor with the same shape as input tensor after applying rotary encoding.
+    ///
+    /// Panics if the input tensor does not have at least 2 dimensions for sequence length and hidden dimension.
+    pub fn apply<const D: usize>(&self, x: Tensor<B, D>, start: usize) -> Tensor<B, D> {
         assert!(
             D >= 2,
             "Input tensor must have at least 2 dimensions for sequence length and hidden dimension"
@@ -127,7 +145,11 @@ impl<B: Backend> RotaryEncoding<B> {
             .reshape([dummy_dim_size, seq_len, d_model / 2, 2])
             .matmul(sign_tensor.unsqueeze())
             .reshape([dummy_dim_size, seq_len, d_model, 2])
-            * self.freq_complex.clone().slice([0..seq_len]).unsqueeze();
+            * self
+                .freq_complex
+                .clone()
+                .slice([start..start + seq_len])
+                .unsqueeze();
 
         // Sum the real and imaginary components to get output tensor and reshape to original shape
         out.sum_dim(D - 1).reshape(input_shape)
