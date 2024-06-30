@@ -1,11 +1,6 @@
-use std::{collections::btree_map::Range, ops::RangeBounds};
-
 use burn_tensor::{
-    backend::Backend,
-    cast::ToElement,
-    ops::{IntElem, IntTensor},
-    sparse_backend::SparseBackend,
-    Bool, BroadcastArgs, Data, ElementConversion, Float, Int, Reader, Shape, Tensor,
+    backend::Backend, cast::ToElement, sparse_backend::SparseBackend, ElementConversion, Float,
+    Int, Shape, Tensor,
 };
 
 use crate::{SparseCOO, SparseDecorator};
@@ -203,7 +198,7 @@ where
     fn sparse_into_data<const D: usize>(
         tensor: Self::SparseTensorPrimitive<D>,
     ) -> burn_tensor::Reader<burn_tensor::Data<burn_tensor::ops::FloatElem<Self>, D>> {
-        // TODO This is really bad for performance, but necessary if I dont want to change the data struct
+        // TODO This is really bad for performance, but necessary to avoid changing the data struct. I guess dont convert massive sparse tensors to data without knowing what your doing?
         let dense = Self::sparse_to_dense(tensor);
 
         B::float_to_data(&dense)
