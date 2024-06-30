@@ -64,4 +64,24 @@ where
     ) -> burn_tensor::ops::SparseTensor<Self, D> {
         todo!()
     }
+
+    fn sparse_slice<const D1: usize, const D2: usize>(
+        tensor: burn_tensor::ops::SparseTensor<Self, D1>,
+        indices: [std::ops::Range<usize>; D2],
+    ) -> burn_tensor::ops::SparseTensor<Self, D1> {
+        todo!()
+    }
+
+    fn sparse_into_data<const D: usize>(
+        tensor: burn_tensor::ops::SparseTensor<Self, D>,
+    ) -> burn_tensor::Reader<burn_tensor::Data<burn_tensor::ops::FloatElem<Self>, D>> {
+        todo!()
+    }
+
+    fn sparse_from_data<const D: usize>(
+        data: burn_tensor::Data<burn_tensor::ops::FloatElem<Self>, D>,
+        device: &burn_tensor::Device<Self>,
+    ) -> burn_tensor::ops::SparseTensor<Self, D> {
+        todo!()
+    }
 }

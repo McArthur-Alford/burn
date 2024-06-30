@@ -1,7 +1,11 @@
+use core::ops::Range;
+
+use burn_common::reader::Reader;
+
 use crate::{
     backend::Backend,
-    ops::{FloatTensor, SparseTensor},
-    Device, Shape,
+    ops::{FloatElem, FloatTensor, SparseTensor},
+    Data, Device, Shape, Sparse,
 };
 
 pub trait SparseBackend: Backend {
@@ -29,6 +33,21 @@ pub trait SparseBackend: Backend {
         lhs: Self::SparseTensorPrimitive<D>,
         rhs: Self::FloatTensorPrimitive<D>,
     ) -> Self::SparseTensorPrimitive<D>;
+
+    /// Gets the element at the given indices.
+    ///
+    /// # Arguments
+    ///
+    /// * `tensor` - The tensor.
+    /// * `indices` - The indices.
+    ///
+    /// # Returns
+    ///
+    /// The elements at the given indices.
+    fn sparse_slice<const D1: usize, const D2: usize>(
+        tensor: SparseTensor<Self, D1>,
+        indices: [Range<usize>; D2],
+    ) -> SparseTensor<Self, D1>;
 
     /// Gets the device of the tensor.
     ///
@@ -66,4 +85,47 @@ pub trait SparseBackend: Backend {
     ///
     /// The shape of the tensor.
     fn sparse_shape<const D: usize>(tensor: &SparseTensor<Self, D>) -> Shape<D>;
+
+    /// Converts the tensor to a data structure.
+    ///
+    /// # Arguments
+    ///
+    /// * `tensor` - The tensor.
+    ///
+    /// # Returns
+    ///
+    /// The data structure with the tensor's data.
+    fn sparse_into_data<const D: usize>(
+        tensor: SparseTensor<Self, D>,
+    ) -> Reader<Data<FloatElem<Self>, D>>;
+    /// Gets the data from the tensor.
+    ///
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - The data structure.
+    ///
+    /// # Returns
+    ///
+    /// The data cloned from the data structure.
+    fn sparse_to_data<const D: usize>(
+        tensor: &SparseTensor<Self, D>,
+    ) -> Reader<Data<FloatElem<Self>, D>> {
+        Self::sparse_into_data(tensor.clone())
+    }
+
+    /// Creates a tensor from the data structure.
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - The data structure.
+    /// * `device` - The device to create the tensor on.
+    ///
+    /// # Returns
+    ///
+    /// The tensor with the data.
+    fn sparse_from_data<const D: usize>(
+        data: Data<FloatElem<Self>, D>,
+        device: &Device<Self>,
+    ) -> SparseTensor<Self, D>;
 }

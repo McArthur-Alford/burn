@@ -38,7 +38,7 @@ where
 impl<B, const D: usize, K, T> From<T> for Tensor<B, D, K>
 where
     B: Backend,
-    K: BasicDenseOps<B>,
+    K: BasicOps<B>,
     T: Into<Data<K::Elem, D>>,
 {
     fn from(value: T) -> Self {
@@ -51,6 +51,13 @@ where
     B: Backend,
     K: BasicOps<B>,
 {
+    /// Returns the dimensions of the current tensor.
+    ///
+    /// Equivalent to `tensor.shape().dims`.
+    pub fn dims(&self) -> [usize; D] {
+        Self::shape(self).dims
+    }
+
     /// Returns the device of the current tensor.
     pub fn device(&self) -> B::Device {
         K::device(&self.primitive)
@@ -69,6 +76,88 @@ where
     /// Create an empty tensor of the given shape.
     pub fn empty<S: Into<Shape<D>>>(shape: S, device: &B::Device) -> Self {
         Self::new(K::empty(shape.into(), device))
+    }
+
+    /// Returns a tensor containing the elements selected from the given ranges.
+    ///
+    /// # Panics
+    ///
+    /// If a range exceeds the number of elements on a dimension.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use burn_tensor::backend::Backend;
+    /// use burn_tensor::{Tensor, Shape};
+    ///
+    /// fn example<B: Backend>() {
+    ///     let device = B::Device::default();
+    ///     // Create a tensor with a single dimension of ints between 0 and 11
+    ///     let tensor = Tensor::<B, 1, burn_tensor::Int>::arange(0..12, &device);
+    ///     // Select elements 0, 1, 2, 3 from the first dimension
+    ///     let tensor_slices = tensor.clone().slice([0..4]);
+    ///     println!("\nexpecting [0,1,2,3] : {:?}", tensor);
+    ///     println!("expecting [4] : {:?}", tensor.dims());
+    ///
+    ///     // Create a Tensor with 3 dimensions
+    ///     let tensor = Tensor::<B, 3>::ones(Shape::new([2, 3, 3]), &device);
+    ///     // This slice will select the element 0 on the first dimension,
+    ///     // elements 0,1,2 of the second dimension and element 1 of third dimension
+    ///     let tensor_slices = tensor.slice([0..1, 0..3, 1..2]);
+    ///     println!("expecting [1, 3, 1] : {:?}", tensor_slices.dims());
+    ///
+    ///     // Create a tensor of ints from 0 to 11 and reshape it into three dimensions
+    ///     let tensor = Tensor::<B, 1, burn_tensor::Int>::arange(0..12, &device);
+    ///     let tensor = tensor.reshape([1, 3, 4]);
+    ///     println!("\nexpecting [[[0,1,2,3],[4,5,6,7],[8,9,10,11]]] : {:?}", tensor);
+    ///     println!("expecting [1, 3, 4] : {:?}", tensor.dims());
+    ///     // Select element 0 of first dimension, elements 1,2 of second dimension
+    ///     // and element 1 of third dimension
+    ///     //
+    ///     // This is the equivalent of this pseudo code
+    ///     // let mut v = vec![[[]]];
+    ///     // v[0][0][0] = tensor[0][1][1];
+    ///     // v[0][1][0] = tensor[0][2][1];
+    ///     let tensor_slices = tensor.slice([0..1, 1..3, 1..2]);
+    ///     println!("\nexpecting [1, 2, 1] : {:?}", tensor_slices.dims());
+    ///     println!("expecting [[[5],[9]]] : {:?}", tensor_slices);
+    /// }
+    /// ```
+    pub fn slice<const D2: usize>(self, ranges: [core::ops::Range<usize>; D2]) -> Self {
+        check!(TensorCheck::slice(&self.shape(), &ranges));
+        Self::new(K::slice(self.primitive, ranges))
+    }
+
+    #[cfg(all(not(feature = "wasm-sync"), target_family = "wasm"))]
+    /// Returns the data of the current tensor.
+    pub async fn into_data(self) -> Data<K::Elem, D> {
+        K::into_data(self.primitive).read().await
+    }
+
+    #[cfg(any(feature = "wasm-sync", not(target_family = "wasm")))]
+    /// Returns the data of the current tensor.
+    pub fn into_data(self) -> Data<K::Elem, D> {
+        K::into_data(self.primitive).read()
+    }
+
+    #[cfg(all(not(feature = "wasm-sync"), target_family = "wasm"))]
+    /// Returns the data of the current tensor.
+    pub async fn to_data(&self) -> Data<K::Elem, D> {
+        K::into_data(self.primitive.clone()).read().await
+    }
+
+    #[cfg(any(feature = "wasm-sync", not(target_family = "wasm")))]
+    /// Returns the data of the current tensor without taking ownership.
+    pub fn to_data(&self) -> Data<K::Elem, D> {
+        Self::into_data(self.clone())
+    }
+
+    /// Create a tensor from the given data on the given device.
+    pub fn from_data<T>(data: T, device: &B::Device) -> Self
+    where
+        T: Into<Data<K::Elem, D>>,
+    {
+        Self::new(K::from_data(data.into(), device))
     }
 }
 
@@ -92,13 +181,6 @@ where
     /// Converts from a primitive tensor into a tensor.
     pub fn from_primitive(tensor: K::Primitive<D>) -> Self {
         Self::new(tensor)
-    }
-
-    /// Returns the dimensions of the current tensor.
-    ///
-    /// Equivalent to `tensor.shape().dims`.
-    pub fn dims(&self) -> [usize; D] {
-        Self::shape(self).dims
     }
 
     /// Reshape the tensor to have the given shape.
@@ -605,56 +687,6 @@ where
         self.reshape(shape)
     }
 
-    /// Returns a tensor containing the elements selected from the given ranges.
-    ///
-    /// # Panics
-    ///
-    /// If a range exceeds the number of elements on a dimension.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use burn_tensor::backend::Backend;
-    /// use burn_tensor::{Tensor, Shape};
-    ///
-    /// fn example<B: Backend>() {
-    ///     let device = B::Device::default();
-    ///     // Create a tensor with a single dimension of ints between 0 and 11
-    ///     let tensor = Tensor::<B, 1, burn_tensor::Int>::arange(0..12, &device);
-    ///     // Select elements 0, 1, 2, 3 from the first dimension
-    ///     let tensor_slices = tensor.clone().slice([0..4]);
-    ///     println!("\nexpecting [0,1,2,3] : {:?}", tensor);
-    ///     println!("expecting [4] : {:?}", tensor.dims());
-    ///
-    ///     // Create a Tensor with 3 dimensions
-    ///     let tensor = Tensor::<B, 3>::ones(Shape::new([2, 3, 3]), &device);
-    ///     // This slice will select the element 0 on the first dimension,
-    ///     // elements 0,1,2 of the second dimension and element 1 of third dimension
-    ///     let tensor_slices = tensor.slice([0..1, 0..3, 1..2]);
-    ///     println!("expecting [1, 3, 1] : {:?}", tensor_slices.dims());
-    ///
-    ///     // Create a tensor of ints from 0 to 11 and reshape it into three dimensions
-    ///     let tensor = Tensor::<B, 1, burn_tensor::Int>::arange(0..12, &device);
-    ///     let tensor = tensor.reshape([1, 3, 4]);
-    ///     println!("\nexpecting [[[0,1,2,3],[4,5,6,7],[8,9,10,11]]] : {:?}", tensor);
-    ///     println!("expecting [1, 3, 4] : {:?}", tensor.dims());
-    ///     // Select element 0 of first dimension, elements 1,2 of second dimension
-    ///     // and element 1 of third dimension
-    ///     //
-    ///     // This is the equivalent of this pseudo code
-    ///     // let mut v = vec![[[]]];
-    ///     // v[0][0][0] = tensor[0][1][1];
-    ///     // v[0][1][0] = tensor[0][2][1];
-    ///     let tensor_slices = tensor.slice([0..1, 1..3, 1..2]);
-    ///     println!("\nexpecting [1, 2, 1] : {:?}", tensor_slices.dims());
-    ///     println!("expecting [[[5],[9]]] : {:?}", tensor_slices);
-    /// }
-    /// ```
-    pub fn slice<const D2: usize>(self, ranges: [core::ops::Range<usize>; D2]) -> Self {
-        check!(TensorCheck::slice(&self.shape(), &ranges));
-        Self::new(K::slice(self.primitive, ranges))
-    }
-
     /// Returns a copy of the current tensor with the selected elements changed to the new ones at
     /// the selected indices.
     ///
@@ -688,38 +720,6 @@ where
             &ranges
         ));
         Self::new(K::slice_assign(self.primitive, ranges, values.primitive))
-    }
-
-    #[cfg(all(not(feature = "wasm-sync"), target_family = "wasm"))]
-    /// Returns the data of the current tensor.
-    pub async fn into_data(self) -> Data<K::Elem, D> {
-        K::into_data(self.primitive).read().await
-    }
-
-    #[cfg(any(feature = "wasm-sync", not(target_family = "wasm")))]
-    /// Returns the data of the current tensor.
-    pub fn into_data(self) -> Data<K::Elem, D> {
-        K::into_data(self.primitive).read()
-    }
-
-    #[cfg(all(not(feature = "wasm-sync"), target_family = "wasm"))]
-    /// Returns the data of the current tensor.
-    pub async fn to_data(&self) -> Data<K::Elem, D> {
-        K::into_data(self.primitive.clone()).read().await
-    }
-
-    #[cfg(any(feature = "wasm-sync", not(target_family = "wasm")))]
-    /// Returns the data of the current tensor without taking ownership.
-    pub fn to_data(&self) -> Data<K::Elem, D> {
-        Self::into_data(self.clone())
-    }
-
-    /// Create a tensor from the given data on the given device.
-    pub fn from_data<T>(data: T, device: &B::Device) -> Self
-    where
-        T: Into<Data<K::Elem, D>>,
-    {
-        Self::new(K::from_data(data.into(), device))
     }
 
     /// Repeat the tensor along the given dimension.
@@ -999,7 +999,7 @@ impl<B: Backend, const D: usize, K: BasicDenseOps<B>> DimIter<B, D, K> {
 impl<B, const D: usize, K> Tensor<B, D, K>
 where
     B: Backend,
-    K: BasicDenseOps<B>,
+    K: BasicOps<B>,
     <K as BasicOps<B>>::Elem: Debug,
 {
     #[cfg(any(feature = "wasm-sync", not(target_family = "wasm")))]
@@ -1173,8 +1173,8 @@ impl<B, const D: usize, K> core::fmt::Display for Tensor<B, D, K>
 where
     B: Backend,
     B::IntElem: core::fmt::Display,
-    K: BasicDenseOps<B>,
-    <K as BasicOps<B>>::Elem: Debug,
+    K: BasicOps<B>,
+    K::Elem: Debug,
 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         writeln!(f, "Tensor {{")?;
@@ -1315,6 +1315,79 @@ pub trait BasicOps<B: Backend>: TensorKind<B> {
     /// For creating empty tensors, users should prefer the [Tensor::empty](Tensor::empty) function,
     /// which is more high-level and designed for public use.
     fn empty<const D: usize>(shape: Shape<D>, device: &B::Device) -> Self::Primitive<D>;
+
+    ///  Select tensor elements corresponding for the given ranges.
+    ///
+    /// # Arguments
+    ///
+    /// * `tensor` - The tensor.
+    /// * `ranges` - The ranges of the elements to select.
+    ///
+    /// # Returns
+    ///
+    /// The selected elements.
+    ///
+    /// # Remarks
+    ///
+    /// This is a low-level function used internally by the library to call different backend functions
+    /// with static dispatch. It is not designed for direct usage by users, and not recommended to import
+    /// or use this function directly.
+    ///
+    /// For selecting elements of a tensor, users should prefer the [Tensor::slice](Tensor::slice) function,
+    /// which is more high-level and designed for public use.
+    fn slice<const D1: usize, const D2: usize>(
+        tensor: Self::Primitive<D1>,
+        range: [Range<usize>; D2],
+    ) -> Self::Primitive<D1>;
+
+    /// Extracts the data from the tensor.
+    ///
+    /// # Arguments
+    ///
+    /// * `tensor` - The tensor.
+    ///
+    /// # Returns
+    ///
+    /// The data of the tensor.
+    ///
+    /// # Remarks
+    ///
+    /// This is a low-level function used internally by the library to call different backend functions
+    /// with static dispatch. It is not designed for direct usage by users, and not recommended to import
+    /// or use this function directly.
+    ///
+    /// For extracting the data of a tensor, users should prefer the [Tensor::into_data](Tensor::into_data) function,
+    /// which is more high-level and designed for public use.
+    fn into_data<const D: usize>(tensor: Self::Primitive<D>) -> Reader<Data<Self::Elem, D>>;
+
+    /// Creates a tensor from the given data.
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - The data of the tensor.
+    /// * `device` - The device on which the tensor will be allocated.
+    ///
+    /// # Returns
+    ///
+    /// The tensor.
+    ///
+    /// # Remarks
+    ///
+    /// This is a low-level function used internally by the library to call different backend functions
+    /// with static dispatch. It is not designed for direct usage by users, and not recommended to import
+    /// or use this function directly.
+    ///
+    /// For creating a tensor from data, users should prefer the [Tensor::from_data](Tensor::from_data) function,
+    /// which is more high-level and designed for public use.
+    fn from_data<const D: usize>(
+        data: Data<Self::Elem, D>,
+        device: &B::Device,
+    ) -> Self::Primitive<D>;
+
+    /// Returns the name of the element type.
+    fn elem_type_name() -> &'static str {
+        core::any::type_name::<Self::Elem>()
+    }
 }
 
 /// Trait that list all operations that can be applied on all sparse tensors.
@@ -1428,30 +1501,6 @@ pub trait BasicDenseOps<B: Backend>: BasicOps<B> {
     /// The tensor with the axes flipped.
     fn flip<const D: usize>(tensor: Self::Primitive<D>, axes: &[usize]) -> Self::Primitive<D>;
 
-    ///  Select tensor elements corresponding for the given ranges.
-    ///
-    /// # Arguments
-    ///
-    /// * `tensor` - The tensor.
-    /// * `ranges` - The ranges of the elements to select.
-    ///
-    /// # Returns
-    ///
-    /// The selected elements.
-    ///
-    /// # Remarks
-    ///
-    /// This is a low-level function used internally by the library to call different backend functions
-    /// with static dispatch. It is not designed for direct usage by users, and not recommended to import
-    /// or use this function directly.
-    ///
-    /// For selecting elements of a tensor, users should prefer the [Tensor::slice](Tensor::slice) function,
-    /// which is more high-level and designed for public use.
-    fn slice<const D1: usize, const D2: usize>(
-        tensor: Self::Primitive<D1>,
-        range: [Range<usize>; D2],
-    ) -> Self::Primitive<D1>;
-
     ///  Assigns the given value to the tensor elements corresponding for the given ranges.
     ///
     /// # Arguments
@@ -1477,50 +1526,6 @@ pub trait BasicDenseOps<B: Backend>: BasicOps<B> {
         ranges: [Range<usize>; D2],
         value: Self::Primitive<D1>,
     ) -> Self::Primitive<D1>;
-
-    /// Extracts the data from the tensor.
-    ///
-    /// # Arguments
-    ///
-    /// * `tensor` - The tensor.
-    ///
-    /// # Returns
-    ///
-    /// The data of the tensor.
-    ///
-    /// # Remarks
-    ///
-    /// This is a low-level function used internally by the library to call different backend functions
-    /// with static dispatch. It is not designed for direct usage by users, and not recommended to import
-    /// or use this function directly.
-    ///
-    /// For extracting the data of a tensor, users should prefer the [Tensor::into_data](Tensor::into_data) function,
-    /// which is more high-level and designed for public use.
-    fn into_data<const D: usize>(tensor: Self::Primitive<D>) -> Reader<Data<Self::Elem, D>>;
-
-    /// Creates a tensor from the given data.
-    ///
-    /// # Arguments
-    ///
-    /// * `data` - The data of the tensor.
-    /// * `device` - The device on which the tensor will be allocated.
-    ///
-    /// # Returns
-    ///
-    /// The tensor.
-    ///
-    /// # Remarks
-    ///
-    /// This is a low-level function used internally by the library to call different backend functions
-    /// with static dispatch. It is not designed for direct usage by users, and not recommended to import
-    /// or use this function directly.
-    ///
-    /// For creating a tensor from data, users should prefer the [Tensor::from_data](Tensor::from_data) function,
-    /// which is more high-level and designed for public use.
-    fn from_data<const D: usize>(
-        data: Data<Self::Elem, D>,
-        device: &B::Device,
-    ) -> Self::Primitive<D>;
 
     /// Repeat the tensor along the given dimension.
     ///
@@ -1616,11 +1621,6 @@ pub trait BasicDenseOps<B: Backend>: BasicOps<B> {
         lhs: Self::Primitive<D>,
         rhs: Self::Primitive<D>,
     ) -> Tensor<B, D, Bool>;
-
-    /// Returns the name of the element type.
-    fn elem_type_name() -> &'static str {
-        core::any::type_name::<Self::Elem>()
-    }
 
     /// Tests if any element in the `tensor` evaluates to True.
     ///
@@ -1734,6 +1734,24 @@ impl<B: Backend> BasicOps<B> for Float {
     fn empty<const D: usize>(shape: Shape<D>, device: &B::Device) -> Self::Primitive<D> {
         B::float_empty(shape, device)
     }
+
+    fn slice<const D1: usize, const D2: usize>(
+        tensor: Self::Primitive<D1>,
+        ranges: [Range<usize>; D2],
+    ) -> Self::Primitive<D1> {
+        B::float_slice(tensor, ranges)
+    }
+
+    fn into_data<const D: usize>(tensor: Self::Primitive<D>) -> Reader<Data<Self::Elem, D>> {
+        B::float_into_data(tensor)
+    }
+
+    fn from_data<const D: usize>(
+        data: Data<Self::Elem, D>,
+        device: &B::Device,
+    ) -> Self::Primitive<D> {
+        B::float_from_data(data, device)
+    }
 }
 
 impl<B: Backend> BasicDenseOps<B> for Float {
@@ -1757,30 +1775,12 @@ impl<B: Backend> BasicDenseOps<B> for Float {
         B::float_swap_dims(tensor, dim1, dim2)
     }
 
-    fn slice<const D1: usize, const D2: usize>(
-        tensor: Self::Primitive<D1>,
-        ranges: [Range<usize>; D2],
-    ) -> Self::Primitive<D1> {
-        B::float_slice(tensor, ranges)
-    }
-
     fn slice_assign<const D1: usize, const D2: usize>(
         tensor: Self::Primitive<D1>,
         ranges: [Range<usize>; D2],
         value: Self::Primitive<D1>,
     ) -> Self::Primitive<D1> {
         B::float_slice_assign(tensor, ranges, value)
-    }
-
-    fn into_data<const D: usize>(tensor: Self::Primitive<D>) -> Reader<Data<Self::Elem, D>> {
-        B::float_into_data(tensor)
-    }
-
-    fn from_data<const D: usize>(
-        data: Data<Self::Elem, D>,
-        device: &B::Device,
-    ) -> Self::Primitive<D> {
-        B::float_from_data(data, device)
     }
 
     fn repeat<const D: usize>(
@@ -1862,6 +1862,24 @@ impl<B: Backend> BasicOps<B> for Int {
     fn empty<const D: usize>(shape: Shape<D>, device: &B::Device) -> Self::Primitive<D> {
         B::int_empty(shape, device)
     }
+
+    fn slice<const D1: usize, const D2: usize>(
+        tensor: Self::Primitive<D1>,
+        ranges: [Range<usize>; D2],
+    ) -> Self::Primitive<D1> {
+        B::int_slice(tensor, ranges)
+    }
+
+    fn into_data<const D: usize>(tensor: Self::Primitive<D>) -> Reader<Data<Self::Elem, D>> {
+        B::int_into_data(tensor)
+    }
+
+    fn from_data<const D: usize>(
+        data: Data<Self::Elem, D>,
+        device: &B::Device,
+    ) -> Self::Primitive<D> {
+        B::int_from_data(data, device)
+    }
 }
 
 impl<B: Backend> BasicDenseOps<B> for Int {
@@ -1885,30 +1903,12 @@ impl<B: Backend> BasicDenseOps<B> for Int {
         B::int_swap_dims(tensor, dim1, dim2)
     }
 
-    fn slice<const D1: usize, const D2: usize>(
-        tensor: Self::Primitive<D1>,
-        ranges: [Range<usize>; D2],
-    ) -> Self::Primitive<D1> {
-        B::int_slice(tensor, ranges)
-    }
-
     fn slice_assign<const D1: usize, const D2: usize>(
         tensor: Self::Primitive<D1>,
         ranges: [Range<usize>; D2],
         value: Self::Primitive<D1>,
     ) -> Self::Primitive<D1> {
         B::int_slice_assign(tensor, ranges, value)
-    }
-
-    fn into_data<const D: usize>(tensor: Self::Primitive<D>) -> Reader<Data<Self::Elem, D>> {
-        B::int_into_data(tensor)
-    }
-
-    fn from_data<const D: usize>(
-        data: Data<Self::Elem, D>,
-        device: &B::Device,
-    ) -> Self::Primitive<D> {
-        B::int_from_data(data, device)
     }
 
     fn repeat<const D: usize>(
@@ -1990,6 +1990,24 @@ impl<B: Backend> BasicOps<B> for Bool {
     fn empty<const D: usize>(shape: Shape<D>, device: &B::Device) -> Self::Primitive<D> {
         B::bool_empty(shape, device)
     }
+
+    fn slice<const D1: usize, const D2: usize>(
+        tensor: Self::Primitive<D1>,
+        ranges: [Range<usize>; D2],
+    ) -> Self::Primitive<D1> {
+        B::bool_slice(tensor, ranges)
+    }
+
+    fn into_data<const D: usize>(tensor: Self::Primitive<D>) -> Reader<Data<Self::Elem, D>> {
+        B::bool_into_data(tensor)
+    }
+
+    fn from_data<const D: usize>(
+        data: Data<Self::Elem, D>,
+        device: &B::Device,
+    ) -> Self::Primitive<D> {
+        B::bool_from_data(data, device)
+    }
 }
 
 impl<B: Backend> BasicDenseOps<B> for Bool {
@@ -2013,30 +2031,12 @@ impl<B: Backend> BasicDenseOps<B> for Bool {
         B::bool_swap_dims(tensor, dim1, dim2)
     }
 
-    fn slice<const D1: usize, const D2: usize>(
-        tensor: Self::Primitive<D1>,
-        ranges: [Range<usize>; D2],
-    ) -> Self::Primitive<D1> {
-        B::bool_slice(tensor, ranges)
-    }
-
     fn slice_assign<const D1: usize, const D2: usize>(
         tensor: Self::Primitive<D1>,
         ranges: [Range<usize>; D2],
         value: Self::Primitive<D1>,
     ) -> Self::Primitive<D1> {
         B::bool_slice_assign(tensor, ranges, value)
-    }
-
-    fn into_data<const D: usize>(tensor: Self::Primitive<D>) -> Reader<Data<Self::Elem, D>> {
-        B::bool_into_data(tensor)
-    }
-
-    fn from_data<const D: usize>(
-        data: Data<Self::Elem, D>,
-        device: &B::Device,
-    ) -> Self::Primitive<D> {
-        B::bool_from_data(data, device)
     }
 
     fn repeat<const D: usize>(
@@ -2120,6 +2120,24 @@ impl<B: SparseBackend> BasicOps<B> for Sparse {
         device: &<B as Backend>::Device,
     ) -> Self::Primitive<D> {
         B::sparse_empty(shape, device)
+    }
+
+    fn slice<const D1: usize, const D2: usize>(
+        tensor: Self::Primitive<D1>,
+        ranges: [Range<usize>; D2],
+    ) -> Self::Primitive<D1> {
+        B::sparse_slice(tensor, ranges)
+    }
+
+    fn into_data<const D: usize>(tensor: Self::Primitive<D>) -> Reader<Data<Self::Elem, D>> {
+        B::sparse_into_data(tensor)
+    }
+
+    fn from_data<const D: usize>(
+        data: Data<Self::Elem, D>,
+        device: &B::Device,
+    ) -> Self::Primitive<D> {
+        B::sparse_from_data(data, device)
     }
 }
 
