@@ -12,15 +12,6 @@ pub struct SparseCOOTensor<B: Backend, const D: usize> {
     pub shape: Shape<D>,
 }
 
-impl<B: Backend + Default, const D: usize> Default for SparseCOOTensor<B, D> {
-    fn default() -> Self {
-        Self {
-            shape: Shape::new([0; D]),
-            ..Default::default()
-        }
-    }
-}
-
 impl<B: Backend + std::fmt::Debug, const D: usize> std::fmt::Debug for SparseCOOTensor<B, D> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let a: Tensor<B, 2, Int> = Tensor::from_primitive(self.coordinates.clone());
