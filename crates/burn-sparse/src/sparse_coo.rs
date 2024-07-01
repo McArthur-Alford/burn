@@ -99,8 +99,83 @@ where
     fn sparse_spmm<const D: usize>(
         lhs: Self::SparseTensorPrimitive<D>,
         rhs: Self::FloatTensorPrimitive<D>,
-    ) -> Self::SparseTensorPrimitive<D> {
-        todo!()
+    ) -> Self::FloatTensorPrimitive<D> {
+        let SparseCOOTensor {
+            coordinates,
+            values,
+            shape,
+        } = lhs;
+
+        // Extract the number of non-zero elements
+        let num_nonzero = B::int_shape(&coordinates).dims[1];
+
+        // Extract batch indices, row indices, and column indices from the coordinates
+        let batch_indices = B::int_slice(coordinates.clone(), [0..D - 2, 0..num_nonzero]);
+        let row_indices = B::int_reshape(
+            B::int_slice(coordinates.clone(), [D - 2..D - 1, 0..num_nonzero]),
+            Shape::new([num_nonzero]),
+        );
+        let col_indices = B::int_reshape(
+            B::int_slice(coordinates.clone(), [D - 1..D, 0..num_nonzero]),
+            Shape::new([num_nonzero]),
+        );
+
+        // Determine the shape of the result tensor
+        let result_shape = {
+            let mut dims = shape.dims.clone();
+            dims[D - 1] = B::float_shape(&rhs).dims[D - 1];
+            Shape::new(dims)
+        };
+        let device = B::int_device(&coordinates);
+
+        // Initialize the result tensor to zeros
+        let mut result = B::float_zeros(result_shape.clone(), &device);
+
+        // Expand the sparse values for broadcasting by reshaping with an extra dimension
+        let expanded_values =
+            B::float_reshape::<1, 2>(values.clone(), Shape::new([num_nonzero, 1]));
+
+        // Determine the number of columns in the dense tensor for repetition
+        let num_cols = B::float_shape(&rhs).dims[D - 1];
+
+        // Repeat the expanded values to match the number of columns in the dense tensor
+        let repeated_values = B::float_repeat(expanded_values, 1, num_cols);
+
+        // Gather the corresponding rows from the dense tensor based on col_indices
+        let gathered_rows = B::float_select(rhs.clone(), D - 2, col_indices.clone());
+
+        let gathered_rows = B::float_reshape(gathered_rows, Shape::new([num_nonzero, num_cols]));
+
+        // Perform element-wise multiplication
+        let elementwise_mul = B::float_mul(repeated_values, gathered_rows);
+
+        // Flatten the result tensor and row_indices
+        let flat_result_shape = Shape::new([result_shape.num_elements()]);
+        let flat_result = B::float_reshape::<D, 1>(result.clone(), flat_result_shape.clone());
+        let flat_row_indices =
+            B::int_reshape::<1, 1>(row_indices.clone(), Shape::new([num_nonzero]));
+
+        // Compute strides for the dense tensor to match the flattened shape
+        let mut strides_data = [[1]; D];
+        for i in (0..D - 1).rev() {
+            strides_data[i] = [strides_data[i + 1][0] * shape.dims[i + 1] as i64];
+        }
+        let strides_data: Data<B::IntElem, 2> = Data::from(strides_data).convert();
+        let strides = B::int_from_data(strides_data, &device);
+
+        // Compute the flattened indices
+        let flat_indices = B::int_mul(strides, coordinates.clone());
+        let flat_indices = B::int_sum_dim(flat_indices, 0);
+        let flat_indices = B::int_reshape::<2, 1>(flat_indices, Shape::new([num_nonzero]));
+
+        // Scatter add the results into the flattened result tensor
+        let flat_result = B::float_scatter(0, flat_result, flat_indices, elementwise_mul);
+
+        // Reshape the flattened result tensor back to the original shape
+        let result = B::float_reshape(flat_result, result_shape);
+
+        // Return the result tensor
+        result
     }
 
     fn sparse_sddmm<const D: usize>(

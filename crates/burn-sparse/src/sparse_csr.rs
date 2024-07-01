@@ -28,7 +28,7 @@ where
     fn sparse_spmm<const D: usize>(
         lhs: Self::SparseTensorPrimitive<D>,
         rhs: Self::FloatTensorPrimitive<D>,
-    ) -> Self::SparseTensorPrimitive<D> {
+    ) -> Self::FloatTensorPrimitive<D> {
         todo!()
     }
 

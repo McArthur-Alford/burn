@@ -27,7 +27,7 @@ pub trait SparseBackend: Backend {
     fn sparse_spmm<const D: usize>(
         lhs: Self::SparseTensorPrimitive<D>,
         rhs: Self::FloatTensorPrimitive<D>,
-    ) -> Self::SparseTensorPrimitive<D>;
+    ) -> Self::FloatTensorPrimitive<D>;
 
     fn sparse_sddmm<const D: usize>(
         lhs: Self::SparseTensorPrimitive<D>,
