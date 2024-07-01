@@ -12,6 +12,7 @@ mod kind;
 mod narrow;
 mod numeric;
 mod sort;
+mod sparse;
 
 pub use argwhere::argwhere;
 pub use autodiff::*;

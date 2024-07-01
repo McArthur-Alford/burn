@@ -159,6 +159,16 @@ where
     {
         Self::new(K::from_data(data.into(), device))
     }
+
+    /// Converts the tensor into a primitive tensor.
+    pub fn into_primitive(self) -> K::Primitive<D> {
+        self.primitive
+    }
+
+    /// Converts from a primitive tensor into a tensor.
+    pub fn from_primitive(tensor: K::Primitive<D>) -> Self {
+        Self::new(tensor)
+    }
 }
 
 impl<B, const D: usize, K> Tensor<B, D, K>
@@ -173,16 +183,6 @@ where
     B: Backend,
     K: BasicDenseOps<B>,
 {
-    /// Converts the tensor into a primitive tensor.
-    pub fn into_primitive(self) -> K::Primitive<D> {
-        self.primitive
-    }
-
-    /// Converts from a primitive tensor into a tensor.
-    pub fn from_primitive(tensor: K::Primitive<D>) -> Self {
-        Self::new(tensor)
-    }
-
     /// Reshape the tensor to have the given shape.
     ///
     /// A `-1` in the shape is used to infer the remaining dimensions, e.g.: `[2, -1]`
@@ -1395,29 +1395,9 @@ pub trait BasicOps<B: Backend>: TensorKind<B> {
 /// # Warnings
 ///
 /// This is an internal trait, use the public API provided by [tensor struct](Tensor).
-pub trait BasicSparseOps<B: SparseBackend>: BasicOps<B> {
-    fn to_sparse<const D: usize>(
-        tensor: Self::Primitive<D>,
-    ) -> <Float as TensorKind<B>>::Primitive<D>;
+pub trait BasicSparseOps<B: SparseBackend>: BasicOps<B> {}
 
-    fn to_dense<const D: usize>(
-        tensor: <Float as TensorKind<B>>::Primitive<D>,
-    ) -> Self::Primitive<D>;
-}
-
-impl<B: SparseBackend> BasicSparseOps<B> for Sparse {
-    fn to_sparse<const D: usize>(
-        tensor: Self::Primitive<D>,
-    ) -> <Float as TensorKind<B>>::Primitive<D> {
-        todo!()
-    }
-
-    fn to_dense<const D: usize>(
-        tensor: <Float as TensorKind<B>>::Primitive<D>,
-    ) -> Self::Primitive<D> {
-        todo!()
-    }
-}
+impl<B: SparseBackend> BasicSparseOps<B> for Sparse {}
 
 /// Trait that list all operations that can be applied on all dense tensors.
 ///

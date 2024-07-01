@@ -1,24 +1,24 @@
 use burn_tensor::{
-    backend::Backend, cast::ToElement, sparse_backend::SparseBackend, ElementConversion, Float,
-    Int, Shape, Tensor,
+    backend::Backend, cast::ToElement, sparse_backend::SparseBackend, Data, ElementConversion,
+    Float, Int, Shape, Tensor,
 };
 
 use crate::{SparseCOO, SparseDecorator};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SparseCOOTensor<B: Backend, const D: usize> {
     pub coordinates: B::IntTensorPrimitive<2>,
     pub values: B::FloatTensorPrimitive<1>,
     pub shape: Shape<D>,
 }
 
-impl<B: Backend + std::fmt::Debug, const D: usize> std::fmt::Debug for SparseCOOTensor<B, D> {
+impl<B: Backend, const D: usize> std::fmt::Display for SparseCOOTensor<B, D> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let a: Tensor<B, 2, Int> = Tensor::from_primitive(self.coordinates.clone());
-        let b: Tensor<B, 1, Float> = Tensor::from_primitive(self.values.clone());
+        let coords: Tensor<B, 2, Int> = Tensor::from_primitive(self.coordinates.clone());
+        let values: Tensor<B, 1, Float> = Tensor::from_primitive(self.values.clone());
 
-        write!(f, "\ndims: {}\n", a)?;
-        write!(f, "values: {}", b)
+        write!(f, "coords: {}\n", coords)?;
+        write!(f, "values: {}", values)
     }
 }
 
@@ -71,31 +71,29 @@ where
             shape,
         } = sparse;
 
+        let num_nonzero = B::int_shape(&coordinates).dims[1];
         let device = B::int_device(&coordinates);
 
-        let mut dense = B::float_zeros(shape.clone(), &device);
+        let dense = B::float_zeros(Shape::new([shape.num_elements()]), &device);
 
-        let num_nonzero = B::int_shape(&coordinates).dims[1];
-        let num_dims = B::int_shape(&coordinates).dims[0];
-
-        for i in 0..num_nonzero {
-            let coord = B::int_slice(coordinates.clone(), [0..num_dims, i..i + 1]);
-            let coord = B::int_into_data(coord);
-            let coord = coord.read().value;
-
-            let value = B::float_slice(values.clone(), [i..i + 1]);
-            let value = B::float_reshape(value, Shape::new([1; D]));
-
-            let slice: [_; D] = (0..D)
-                .map(|i| coord[i].to_usize()..coord[i].to_usize() + 1)
-                .collect::<Vec<_>>()
-                .try_into()
-                .expect("Invalid Dimensions");
-
-            dense = B::float_slice_assign(dense, slice, value);
+        let mut strides_data = [[1]; D];
+        for i in (0..D - 1).rev() {
+            strides_data[i] = [strides_data[i + 1][0] * shape.dims[i + 1] as i64];
         }
 
-        dense
+        let strides_data: Data<B::IntElem, 2> = Data::from(strides_data).convert();
+
+        let strides = B::int_from_data(strides_data, &device);
+
+        let coordinates = B::int_mul(strides, coordinates);
+
+        let coordinates = B::int_sum_dim(coordinates, 0);
+
+        let coordinates = B::int_reshape(coordinates, Shape::new([num_nonzero]));
+
+        let dense = B::float_select_assign(dense, 0, coordinates, values);
+
+        B::float_reshape(dense, shape)
     }
 
     fn sparse_spmm<const D: usize>(
@@ -122,7 +120,11 @@ where
         tensor: burn_tensor::ops::SparseTensor<Self, D>,
         device: &burn_tensor::Device<Self>,
     ) -> burn_tensor::ops::SparseTensor<Self, D> {
-        todo!()
+        SparseCOOTensor {
+            coordinates: B::int_to_device(tensor.coordinates, &device),
+            values: B::float_to_device(tensor.values, &device),
+            shape: tensor.shape,
+        }
     }
 
     fn sparse_shape<const D: usize>(
@@ -199,6 +201,7 @@ where
         data: burn_tensor::Data<burn_tensor::ops::FloatElem<Self>, D>,
         device: &burn_tensor::Device<Self>,
     ) -> burn_tensor::ops::SparseTensor<Self, D> {
-        todo!()
+        let dense = B::float_from_data(data, &device);
+        Self::sparse_to_sparse(dense)
     }
 }
