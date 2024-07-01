@@ -18,7 +18,7 @@ impl<const D: usize, B> Tensor<B, D>
 where
     B: SparseBackend,
 {
-    pub fn to_sparse(self) -> Tensor<B, D, Sparse> {
+    pub fn sparse(self) -> Tensor<B, D, Sparse> {
         Tensor::new(B::sparse_to_sparse(self.primitive))
     }
 }

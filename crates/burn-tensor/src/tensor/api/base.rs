@@ -173,13 +173,6 @@ where
 
 impl<B, const D: usize, K> Tensor<B, D, K>
 where
-    B: SparseBackend,
-    K: BasicSparseOps<B>,
-{
-}
-
-impl<B, const D: usize, K> Tensor<B, D, K>
-where
     B: Backend,
     K: BasicDenseOps<B>,
 {
@@ -1389,15 +1382,6 @@ pub trait BasicOps<B: Backend>: TensorKind<B> {
         core::any::type_name::<Self::Elem>()
     }
 }
-
-/// Trait that list all operations that can be applied on all sparse tensors.
-///
-/// # Warnings
-///
-/// This is an internal trait, use the public API provided by [tensor struct](Tensor).
-pub trait BasicSparseOps<B: SparseBackend>: BasicOps<B> {}
-
-impl<B: SparseBackend> BasicSparseOps<B> for Sparse {}
 
 /// Trait that list all operations that can be applied on all dense tensors.
 ///

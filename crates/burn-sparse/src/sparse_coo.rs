@@ -191,7 +191,6 @@ where
     fn sparse_into_data<const D: usize>(
         tensor: Self::SparseTensorPrimitive<D>,
     ) -> burn_tensor::Reader<burn_tensor::Data<burn_tensor::ops::FloatElem<Self>, D>> {
-        // TODO This is really bad for performance, but necessary to avoid changing the data struct. I guess dont convert massive sparse tensors to data without knowing what your doing?
         let dense = Self::sparse_to_dense(tensor);
 
         B::float_to_data(&dense)
