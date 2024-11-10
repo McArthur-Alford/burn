@@ -11,6 +11,7 @@ mod int;
 mod kind;
 mod narrow;
 mod numeric;
+mod primitive;
 mod repr;
 mod sort;
 
@@ -22,5 +23,6 @@ pub use chunk::chunk;
 pub use kind::*;
 pub use narrow::narrow;
 pub use numeric::*;
+pub use primitive::*;
 pub use repr::*;
 pub use sort::{argsort, sort, sort_with_indices};

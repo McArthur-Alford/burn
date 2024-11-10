@@ -1,10 +1,13 @@
-use crate::{backend::Backend, BasicOps, TensorKind};
+use crate::{backend::Backend, BasicOps, Dense, KindRepr, TensorKind};
 use alloc::vec::Vec;
 
 pub(crate) fn cat_with_slice_assign<B: Backend, K: TensorKind<B> + BasicOps<B>>(
-    tensors: Vec<K::Primitive>,
+    tensors: Vec<K::Primitive<Dense>>,
     dim: usize,
-) -> K::Primitive {
+) -> K::Primitive<Dense>
+where
+    (K, Dense): KindRepr<B>,
+{
     let first_tensor = tensors.first().expect("Tensors should not be empty");
     let mut shape = K::shape(first_tensor);
     let device = K::device(first_tensor);

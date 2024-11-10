@@ -1,11 +1,14 @@
-use crate::{backend::Backend, BasicOps, TensorKind};
+use crate::{backend::Backend, BasicOps, Dense, KindRepr, TensorKind};
 use alloc::vec::Vec;
 
 pub(crate) fn repeat_with_slice_assign<B: Backend, K: TensorKind<B> + BasicOps<B>>(
-    tensor: K::Primitive,
+    tensor: K::Primitive<Dense>,
     dim: usize,
     times: usize,
-) -> K::Primitive {
+) -> K::Primitive<Dense>
+where
+    (K, Dense): KindRepr<B>,
+{
     let mut shape = K::shape(&tensor);
     let device = K::device(&tensor);
 

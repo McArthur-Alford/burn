@@ -8,6 +8,8 @@ use crate::{
 use alloc::{vec, vec::Vec};
 use burn_common::reader::try_read_sync;
 
+use super::{Dense, KindRepr};
+
 /// Sort the elements of the input `tensor` by value along a given dimension.
 ///
 /// This sort is unstable (i.e., may reorder equal elements).
@@ -29,12 +31,13 @@ use burn_common::reader::try_read_sync;
 /// by static dispatch. It is not designed for direct usage by users, and not recommended to import
 /// or use this function directly.
 pub fn sort<B: Backend, K: TensorKind<B> + BasicOps<B>>(
-    tensor: K::Primitive,
+    tensor: K::Primitive<Dense>,
     dim: usize,
     descending: bool,
-) -> K::Primitive
+) -> K::Primitive<Dense>
 where
     <K as BasicOps<B>>::Elem: Element,
+    (K, Dense): KindRepr<B>,
 {
     let device = K::device(&tensor);
     let data = try_read_sync(K::into_data_async(tensor)).expect("Failed to synchonously read tensor data. This operation is not supported until this backend has a GPU sorting implementation.");
@@ -46,9 +49,10 @@ pub fn sort_data<B: Backend, K: TensorKind<B> + BasicOps<B>>(
     dim: usize,
     device: &Device<B>,
     descending: bool,
-) -> K::Primitive
+) -> K::Primitive<Dense>
 where
     <K as BasicOps<B>>::Elem: Element,
+    (K, Dense): KindRepr<B>,
 {
     let dims = data.shape.clone();
     let data_slice = data.as_mut_slice().unwrap();
@@ -84,12 +88,13 @@ where
 /// by static dispatch. It is not designed for direct usage by users, and not recommended to import
 /// or use this function directly.
 pub fn sort_with_indices<B: Backend, K: TensorKind<B> + BasicOps<B>>(
-    tensor: K::Primitive,
+    tensor: K::Primitive<Dense>,
     dim: usize,
     descending: bool,
-) -> (K::Primitive, IntTensor<B>)
+) -> (K::Primitive<Dense>, IntTensor<B>)
 where
     <K as BasicOps<B>>::Elem: Element,
+    (K, Dense): KindRepr<B>,
 {
     let device = K::device(&tensor);
     let data = try_read_sync(K::into_data_async(tensor)).expect("Failed to synchonously read tensor data. This operation is not supported until this backend has a GPU sorting implementation.");
@@ -101,9 +106,10 @@ fn sort_data_with_indices<B: Backend, K: TensorKind<B> + BasicOps<B>>(
     dim: usize,
     device: &Device<B>,
     descending: bool,
-) -> (K::Primitive, IntTensor<B>)
+) -> (K::Primitive<Dense>, IntTensor<B>)
 where
     <K as BasicOps<B>>::Elem: Element,
+    (K, Dense): KindRepr<B>,
 {
     let dims = data.shape.clone();
     let mut indices_data = dim_indices::<B>(&dims, dim);
@@ -180,12 +186,13 @@ where
 /// by static dispatch. It is not designed for direct usage by users, and not recommended to import
 /// or use this function directly.
 pub fn argsort<B: Backend, K: TensorKind<B> + BasicOps<B>>(
-    tensor: K::Primitive,
+    tensor: K::Primitive<Dense>,
     dim: usize,
     descending: bool,
 ) -> IntTensor<B>
 where
     <K as BasicOps<B>>::Elem: Element,
+    (K, Dense): KindRepr<B>,
 {
     let device = K::device(&tensor);
     let data = try_read_sync(K::into_data_async(tensor)).expect("Failed to synchonously read tensor data. This operation is not supported until this backend has a GPU sorting implementation.");
@@ -201,6 +208,7 @@ fn argsort_data<B: Backend, K: TensorKind<B> + BasicOps<B>>(
 ) -> IntTensor<B>
 where
     <K as BasicOps<B>>::Elem: Element,
+    (K, Dense): KindRepr<B>,
 {
     let dims = data.shape.clone();
     let mut indices_data = dim_indices::<B>(&dims, dim);
@@ -244,6 +252,7 @@ fn sort_slice<B: Backend, K: BasicOps<B>>(
     descending: bool,
 ) where
     <K as BasicOps<B>>::Elem: Element,
+    (K, Dense): KindRepr<B>,
 {
     let ndims = dims.len();
     let strides = compute_strides(dims);

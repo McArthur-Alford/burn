@@ -1,4 +1,4 @@
-use super::narrow::narrow;
+use super::{narrow::narrow, Dense, KindRepr};
 use crate::{backend::Backend, BasicOps, TensorKind};
 use alloc::vec::Vec;
 
@@ -21,10 +21,13 @@ use alloc::vec::Vec;
 /// by static dispatch. It is not designed for direct usage by users, and not recommended to import
 /// or use this function directly.
 pub fn chunk<B: Backend, K: TensorKind<B> + BasicOps<B>>(
-    tensor: K::Primitive,
+    tensor: K::Primitive<Dense>,
     chunks: usize,
     dim: usize,
-) -> Vec<K::Primitive> {
+) -> Vec<K::Primitive<Dense>>
+where
+    (K, Dense): KindRepr<B>,
+{
     let size = K::shape(&tensor).dims[dim];
     if size < chunks {
         return (0..size)
